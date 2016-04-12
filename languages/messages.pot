@@ -1,0 +1,128 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: redirect 0.9.0\n"
+"Report-Msgid-Bugs-To: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2016-04-12T14:30:02+02:00\n"
+"PO-Revision-Date: 2016-04-12T14:30:02+02:00\n"
+"Language: en_US\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+
+#: packages/redirect/controller.php:21
+#: packages/redirect/blocks/redirect/controller.php:115
+msgid "Redirect"
+msgstr ""
+
+#: packages/redirect/controller.php:26
+msgid "This package offers a block to redirect users."
+msgstr ""
+
+#: packages/redirect/blocks/redirect/controller.php:125
+msgid "Redirect specific users to another page."
+msgstr ""
+
+#: packages/redirect/blocks/redirect/controller.php:144
+msgid "No data received"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/controller.php:152
+#: packages/redirect/blocks/redirect/controller.php:158
+msgid "Please specify the destination page"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/controller.php:162
+msgid "Please specify the kind of the destination page"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/controller.php:199
+msgid "Please specify if the message should be shown"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/controller.php:336
+msgid "Redirect block"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/controller.php:350
+msgid "This block will redirect selected users."
+msgstr ""
+
+#: packages/redirect/blocks/redirect/edit.php:7
+msgid "Destination page"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/edit.php:8
+msgid "Redirect by user groups"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/edit.php:9
+msgid "Redirect by IP address"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/edit.php:10
+msgid "Options"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/edit.php:21
+msgid "Please select"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/edit.php:24
+msgid "Another page"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/edit.php:28
+msgid "External URL"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/edit.php:37
+msgid "Choose page"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/edit.php:41
+msgid "URL"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/edit.php:59
+msgid "Always redirect members of these groups"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/edit.php:60
+msgid "Never redirect members of these groups"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/edit.php:80
+#: packages/redirect/blocks/redirect/edit.php:85
+msgid "Select group"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/edit.php:146
+msgid "Always redirect these IP addresses"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/edit.php:153
+msgid "Never redirect these IP addresses"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/edit.php:163
+msgid "Redirect also users that can edit this page contents"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/edit.php:168
+msgid "Show block message"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/edit.php:172
+msgid "Never"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/edit.php:173
+msgid "Only for users that can edit the page contents"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/edit.php:174
+msgid "Always"
+msgstr ""
