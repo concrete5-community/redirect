@@ -2,6 +2,7 @@
 namespace Concrete\Package\Redirect\Block\Redirect;
 
 use Exception;
+use IPLib\Factory as IPFactory;
 
 defined('C5_EXECUTE') or die('Access denied.');
 
@@ -105,6 +106,15 @@ class Controller extends \Concrete\Core\Block\BlockController
      */
     protected $showRedirectMessage;
 
+    protected static $composerLoaded = false;
+
+    protected static function loadComposer()
+    {
+        if (static::$composerLoaded === false) {
+            require_once \Package::getByHandle('redirect')->getPackagePath().'/vendor/autoload.php';
+            static::$composerLoaded = true;
+        }
+    }
     /**
      * Returns the name of the block type.
      *
@@ -143,6 +153,7 @@ class Controller extends \Concrete\Core\Block\BlockController
         if (!is_array($data) || empty($data)) {
             $errors->add(t('No data received'));
         } else {
+            static::loadComposer();
             $normalized['redirectToCID'] = 0;
             $normalized['redirectToURL'] = '';
             switch (isset($data['redirectToType']) ? $data['redirectToType'] : '') {
@@ -178,14 +189,19 @@ class Controller extends \Concrete\Core\Block\BlockController
                 $normalized[$f] = '';
                 if (isset($data[$f])) {
                     $v = array();
-                    foreach (preg_split('/[^\w\.\:]+/', str_replace('|', ' ', (string) $data[$f]), -1, PREG_SPLIT_NO_EMPTY) as $s) {
+                    foreach (preg_split('/[\\s,]+/', str_replace('|', ' ', (string) $data[$f]), -1, PREG_SPLIT_NO_EMPTY) as $s) {
                         $s = trim($s);
                         if ($s !== '') {
-                            $v[] = $s;
+                            $ipRange = IPFactory::rangeFromString($s);
+                            if ($ipRange === null) {
+                                $errors->add(t('Invalid IP address: %s', $s));
+                            } else {
+                                $v[] = $ipRange->toString(false);
+                            }
                         }
                     }
                     if (!empty($v)) {
-                        $normalized[$f] = '|'.implode('|', $v).'|';
+                        $normalized[$f] = implode('|', $v);
                     }
                 }
             }
@@ -284,11 +300,40 @@ class Controller extends \Concrete\Core\Block\BlockController
         return $result;
     }
 
+    /**
+     * @return \IPLib\Address\AddressInterface|null
+     */
     private function getCurrentUserIP()
     {
         static $result;
         if (!isset($result)) {
-            $result = $this->request->getClientIp();
+            static::loadComposer();
+            $ip = IPFactory::addressFromString($this->request->getClientIp());
+            $result = ($ip === null) ? false : $ip;
+        }
+
+        return ($result === false) ? null : $result;
+    }
+
+    /**
+     * @param string $ipList
+     *
+     * @return bool
+     */
+    protected function isUserIpInList($ipList)
+    {
+        $result = false;
+        if ($ipList !== '') {
+            $ip = $this->getCurrentUserIP();
+            if ($ip !== null) {
+                foreach (explode('|', $ipList) as $rangeString) {
+                    $range = IPFactory::rangeFromString($rangeString);
+                    if ($range !== null && $range->contains($ip)) {
+                        $result = true;
+                        break;
+                    }
+                }
+            }
         }
 
         return $result;
@@ -311,10 +356,10 @@ class Controller extends \Concrete\Core\Block\BlockController
         if ($this->dontRedirectGroupIDs !== '' && array_intersect(explode(',', $this->dontRedirectGroupIDs), $this->getCurrentUserGroups())) {
             return;
         }
-        if ($this->dontRedirectIPs !== '' && stripos($this->dontRedirectIPs, '|'.$this->getCurrentUserIP().'|') !== false) {
+        if ($this->isUserIpInList($this->dontRedirectIPs)) {
             return;
         }
-        if ($this->redirectIPs !== '' && stripos($this->redirectIPs, '|'.$this->getCurrentUserIP().'|') !== false) {
+        if ($this->isUserIpInList($this->redirectIPs)) {
             $this->performRedirect();
 
             return;

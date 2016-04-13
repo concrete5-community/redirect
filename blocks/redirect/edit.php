@@ -56,7 +56,7 @@ echo Core::make('helper/concrete/ui')->tabs(array(
 	<?php
     $groups = array();
     foreach (array(
-        array('redirectGroupIDs', t('Always redirect members of these groups')),
+        array('redirectGroupIDs', t('Redirect members of these groups')),
         array('dontRedirectGroupIDs', t('Never redirect members of these groups')),
     ) as $info) {
         $varName = $info[0];
@@ -139,20 +139,33 @@ echo Core::make('helper/concrete/ui')->tabs(array(
 
 
 <div class="ccm-tab-content" id="ccm-tab-content-redirect-by-ip">
-	<div class="form-group">
-		<?php
-        $value = isset($redirectIPs) ? implode("\n", preg_split('/[^\w\.\:]+/', str_replace('|', ' ', $redirectIPs), -1, PREG_SPLIT_NO_EMPTY)) : '';
-        ?>
-		<?php echo $form->label('redirectIPs', t('Always redirect these IP addresses')); ?>
-        <?php echo $form->textarea('redirectIPs', $value, array('rows' => '5', 'style' => 'resize: vertical;')); ?>
-    </div>
-	<div class="form-group">
-		<?php
-        $value = isset($dontRedirectIPs) ? implode("\n", preg_split('/[^\w\.\:]+/', str_replace('|', ' ', $dontRedirectIPs), -1, PREG_SPLIT_NO_EMPTY)) : '';
-        ?>
-		<?php echo $form->label('dontRedirectIPs', t('Never redirect these IP addresses')); ?>
-        <?php echo $form->textarea('dontRedirectIPs', $value, array('rows' => '5', 'style' => 'resize: vertical;')); ?>
-    </div>
+	<?php
+	foreach (array(
+	    array('redirectIPs', t('Redirect these IP addresses')),
+	    array('dontRedirectIPs', t('Never redirect these IP addresses')),
+	) as $info) {
+	    $varName = $info[0];
+	    $value = isset($$varName) ? implode("\n", preg_split('/[\\s,]+/', str_replace('|', ' ', $$varName), -1, PREG_SPLIT_NO_EMPTY)) : '';
+	    ?>
+	    <div class="form-group">
+	    	<?php echo $form->label(
+	    	    $varName,
+	    	    $info[1],
+	    	    array(
+    	    	    'class' => 'launch-tooltip',
+	    	        'data-placement' => 'right',
+	    	        'data-html' => 'true',
+	    	        'title' => t(
+	    	            "Separate multiple values by spaces, new lines or commas.<br />IPv4 and IPv6 addresses are supported.<br />You can specify single IP addresses as well as ranges (examples: %s)",
+	    	            \Punic\Misc::join(array('<code>100.200.*.*</code>', '<code>100.200.0.0/16</code>', '<code>1:2::0/8</code>', '<code>1:2::*:*</code>)'))
+	    	        ),
+	    	    )
+	    	); ?>
+        	<?php echo $form->textarea('$varName', $value, array('rows' => '5', 'style' => 'resize: vertical;')); ?>
+	    </div>
+	    <?php
+	}
+	?>
 </div>
 
 <div class="ccm-tab-content" id="ccm-tab-content-redirect-options">
