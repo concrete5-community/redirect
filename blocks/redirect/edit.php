@@ -161,7 +161,7 @@ echo Core::make('helper/concrete/ui')->tabs(array(
 	    	        ),
 	    	    )
 	    	); ?>
-        	<?php echo $form->textarea('$varName', $value, array('rows' => '5', 'style' => 'resize: vertical;')); ?>
+        	<?php echo $form->textarea($varName, $value, array('rows' => '5', 'style' => 'resize: vertical;')); ?>
 	    </div>
 	    <?php
 	}
