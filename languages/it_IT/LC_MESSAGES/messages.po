@@ -7,8 +7,8 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2016-04-13T14:45:17+02:00\n"
-"PO-Revision-Date: 2016-04-13T14:45:17+02:00\n"
+"POT-Creation-Date: 2016-04-13T14:52:09+02:00\n"
+"PO-Revision-Date: 2016-04-13T14:52:09+02:00\n"
 "Language: it_IT\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
 
@@ -120,14 +120,11 @@ msgstr "Non reindirizzare mai questi indirizzi IP"
 #: packages/redirect/blocks/redirect/edit.php:159
 #, php-format
 msgid "Separate multiple values by spaces, new lines or commas.<br />IPv4 and IPv6 addresses are supported.<br />You can specify single IP addresses as well as ranges (examples: %s)"
-msgstr ""
-"Separa più valori con spazi, ritorni a capo o virgole.<br />È possibile "
-"specificare indirizzi IPv4 e IPv6.<br />È possibile specificare indirizzi IP "
-"singoli o intervalli di indirizzi (esempi: %s)"
+msgstr "Separa più valori con spazi, ritorni a capo o virgole.<br />È possibile specificare indirizzi IPv4 e IPv6.<br />È possibile specificare indirizzi IP singoli o intervalli di indirizzi (esempi: %s)"
 
 #: packages/redirect/blocks/redirect/edit.php:176
-msgid "Redirect also users that can edit this page contents"
-msgstr "Reindirizza anche gli utenti che possono modificare il contenuto di questa pagina"
+msgid "Redirect users with permission to edit the page contents"
+msgstr "Reindirizza gli utenti che possono modificare il contenuto della pagina"
 
 #: packages/redirect/blocks/redirect/edit.php:181
 msgid "Show block message"

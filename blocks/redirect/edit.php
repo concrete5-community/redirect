@@ -173,7 +173,7 @@ echo Core::make('helper/concrete/ui')->tabs(array(
 		<div class="checkbox">
 			<label>
 				<?php echo $form->checkbox('redirectEditors', '1', isset($redirectEditors) ? $redirectEditors : '0'); ?>
-				<?php echo t('Redirect also users that can edit this page contents'); ?>
+				<?php echo t('Redirect users with permission to edit the page contents'); ?>
 			</label>
 		</div>
 	</div>
