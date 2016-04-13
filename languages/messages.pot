@@ -1,19 +1,19 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: redirect 0.9.0\n"
+"Project-Id-Version: redirect 0.9.1\n"
 "Report-Msgid-Bugs-To: \n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2016-04-13T12:19:48+02:00\n"
-"PO-Revision-Date: 2016-04-13T12:19:48+02:00\n"
+"POT-Creation-Date: 2016-04-13T14:45:17+02:00\n"
+"PO-Revision-Date: 2016-04-13T14:45:17+02:00\n"
 "Language: en_US\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
 
 #: packages/redirect/controller.php:21
-#: packages/redirect/blocks/redirect/controller.php:115
+#: packages/redirect/blocks/redirect/controller.php:116
 msgid "Redirect"
 msgstr ""
 
@@ -21,32 +21,42 @@ msgstr ""
 msgid "This package offers a block to redirect users."
 msgstr ""
 
-#: packages/redirect/blocks/redirect/controller.php:125
+#: packages/redirect/blocks/redirect/controller.php:126
 msgid "Redirect specific users to another page."
 msgstr ""
 
-#: packages/redirect/blocks/redirect/controller.php:144
+#: packages/redirect/blocks/redirect/controller.php:163
 msgid "No data received"
 msgstr ""
 
-#: packages/redirect/blocks/redirect/controller.php:152
-#: packages/redirect/blocks/redirect/controller.php:158
+#: packages/redirect/blocks/redirect/controller.php:172
+#: packages/redirect/blocks/redirect/controller.php:183
 msgid "Please specify the destination page"
 msgstr ""
 
-#: packages/redirect/blocks/redirect/controller.php:162
+#: packages/redirect/blocks/redirect/controller.php:176
+#: packages/redirect/blocks/redirect/controller.php:189
+msgid "The destination page is the current page."
+msgstr ""
+
+#: packages/redirect/blocks/redirect/controller.php:195
 msgid "Please specify the kind of the destination page"
 msgstr ""
 
-#: packages/redirect/blocks/redirect/controller.php:199
+#: packages/redirect/blocks/redirect/controller.php:219
+#, php-format
+msgid "Invalid IP address: %s"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/controller.php:237
 msgid "Please specify if the message should be shown"
 msgstr ""
 
-#: packages/redirect/blocks/redirect/controller.php:336
+#: packages/redirect/blocks/redirect/controller.php:443
 msgid "Redirect block"
 msgstr ""
 
-#: packages/redirect/blocks/redirect/controller.php:350
+#: packages/redirect/blocks/redirect/controller.php:457
 msgid "This block will redirect selected users."
 msgstr ""
 
@@ -99,30 +109,35 @@ msgstr ""
 msgid "Select group"
 msgstr ""
 
-#: packages/redirect/blocks/redirect/edit.php:146
+#: packages/redirect/blocks/redirect/edit.php:144
 msgid "Redirect these IP addresses"
 msgstr ""
 
-#: packages/redirect/blocks/redirect/edit.php:153
+#: packages/redirect/blocks/redirect/edit.php:145
 msgid "Never redirect these IP addresses"
 msgstr ""
 
-#: packages/redirect/blocks/redirect/edit.php:163
+#: packages/redirect/blocks/redirect/edit.php:159
+#, php-format
+msgid "Separate multiple values by spaces, new lines or commas.<br />IPv4 and IPv6 addresses are supported.<br />You can specify single IP addresses as well as ranges (examples: %s)"
+msgstr ""
+
+#: packages/redirect/blocks/redirect/edit.php:176
 msgid "Redirect also users that can edit this page contents"
 msgstr ""
 
-#: packages/redirect/blocks/redirect/edit.php:168
+#: packages/redirect/blocks/redirect/edit.php:181
 msgid "Show block message"
 msgstr ""
 
-#: packages/redirect/blocks/redirect/edit.php:172
+#: packages/redirect/blocks/redirect/edit.php:185
 msgid "Never"
 msgstr ""
 
-#: packages/redirect/blocks/redirect/edit.php:173
+#: packages/redirect/blocks/redirect/edit.php:186
 msgid "Only for users that can edit the page contents"
 msgstr ""
 
-#: packages/redirect/blocks/redirect/edit.php:174
+#: packages/redirect/blocks/redirect/edit.php:187
 msgid "Always"
 msgstr ""
