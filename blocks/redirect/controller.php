@@ -170,12 +170,25 @@ class Controller extends \Concrete\Core\Block\BlockController
                     $normalized['redirectToCID'] = isset($data['redirectToCID']) ? (int) $data['redirectToCID'] : 0;
                     if ($normalized['redirectToCID'] <= 0) {
                         $errors->add(t('Please specify the destination page'));
+                    } else {
+                        $c = \Page::getCurrentPage();
+                        if (is_object($c) && !$c->isError() && $c->getCollectionID() == $normalized['redirectToCID']) {
+                            $errors->add(t('The destination page is the current page.'));
+                        }
                     }
                     break;
                 case 'url':
                     $normalized['redirectToURL'] = isset($data['redirectToURL']) ? trim((string) $data['redirectToURL']) : '';
                     if ($normalized['redirectToURL'] === '') {
                         $errors->add(t('Please specify the destination page'));
+                    } else {
+                        $c = \Page::getCurrentPage();
+                        if (is_object($c) && !$c->isError()) {
+                            $myURL = (string) \URL::to($c);
+                            if (rtrim($myURL, '/') === rtrim($normalized['redirectToURL'], '/')) {
+                                $errors->add(t('The destination page is the current page.'));
+                            }
+                        }
                     }
                     break;
                 default:
