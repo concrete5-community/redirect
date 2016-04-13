@@ -106,15 +106,6 @@ class Controller extends \Concrete\Core\Block\BlockController
      */
     protected $showRedirectMessage;
 
-    protected static $composerLoaded = false;
-
-    protected static function loadComposer()
-    {
-        if (static::$composerLoaded === false) {
-            require_once \Package::getByHandle('redirect')->getPackagePath().'/vendor/autoload.php';
-            static::$composerLoaded = true;
-        }
-    }
     /**
      * Returns the name of the block type.
      *
@@ -133,6 +124,24 @@ class Controller extends \Concrete\Core\Block\BlockController
     public function getBlockTypeDescription()
     {
         return t("Redirect specific users to another page.");
+    }
+
+    /**
+     * Is Composer stuff already loaded?
+     *
+     * @var bool
+     */
+    protected static $composerLoaded = false;
+
+    /**
+     * Include Composer stuff, if not already loaded.
+     */
+    protected static function loadComposer()
+    {
+        if (static::$composerLoaded === false) {
+            require_once \Package::getByHandle('redirect')->getPackagePath().'/vendor/autoload.php';
+            static::$composerLoaded = true;
+        }
     }
 
     /**
@@ -247,18 +256,69 @@ class Controller extends \Concrete\Core\Block\BlockController
         parent::save($normalized);
     }
 
+    /**
+     * Get the currently logged in user.
+     *
+     * @return \User|null
+     */
+    private function getCurrentUser()
+    {
+        static $result;
+        if (!isset($result)) {
+            $result = false;
+            if (\User::isLoggedIn()) {
+                $u = new \User();
+                if ($u->isRegistered()) {
+                    $result = $u;
+                }
+            }
+        }
+
+        return ($result === false) ? null : $result;
+    }
+
+    /**
+     * Return the list of the ID of the current user.
+     *
+     * @return string[]
+     */
+    private function getCurrentUserGroups()
+    {
+        static $result;
+        if (!isset($result)) {
+            $result = array();
+            $me = $this->getCurrentUser();
+            if ($me === null) {
+                $result[] = (string) GUEST_GROUP_ID;
+            } else {
+                $result[] = (string) REGISTERED_GROUP_ID;
+                foreach ($me->getUserGroups() as $gID) {
+                    $gID = (string) $gID;
+                    if ($gID != GUEST_GROUP_ID && $gID != REGISTERED_GROUP_ID) {
+                        $result[] = (string) $gID;
+                    }
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param \Concrete\Core\Page\Page $c
+     *
+     * @return bool
+     */
     private function userCanEdit(\Concrete\Core\Page\Page $c)
     {
         static $canEdit;
         if (!isset($canEdit)) {
             $canEdit = false;
-            if (\User::isLoggedIn()) {
-                $me = new \User();
-                if ($me->isRegistered()) {
-                    $cp = new \Permissions($c);
-                    if ($cp->canEditPageContents()) {
-                        $canEdit = true;
-                    }
+            $me = $this->getCurrentUser();
+            if ($me !== null) {
+                $cp = new \Permissions($c);
+                if ($cp->canEditPageContents()) {
+                    $canEdit = true;
                 }
             }
         }
@@ -276,28 +336,6 @@ class Controller extends \Concrete\Core\Block\BlockController
         } elseif (is_string($this->redirectToURL) && $this->redirectToURL !== '') {
             $this->redirect($this->redirectToURL);
         }
-    }
-
-    private function getCurrentUserGroups()
-    {
-        static $result;
-        if (!isset($result)) {
-            $result = array();
-            $me = \User::isLoggedIn() ? new \User() : null;
-            if ($me !== null && $me->isRegistered()) {
-                $result[] = (string) REGISTERED_GROUP_ID;
-                foreach ($me->getUserGroups() as $gID) {
-                    $gID = (string) $gID;
-                    if ($gID != GUEST_GROUP_ID && $gID != REGISTERED_GROUP_ID) {
-                        $result[] = (string) $gID;
-                    }
-                }
-            } else {
-                $result[] = (string) GUEST_GROUP_ID;
-            }
-        }
-
-        return $result;
     }
 
     /**
@@ -341,29 +379,40 @@ class Controller extends \Concrete\Core\Block\BlockController
 
     public function on_start()
     {
+        $user = $this->getCurrentUser();
+        // Never redirect the administrator
+        if ($user !== null && $user->getUserID() == USER_SUPER_ID) {
+            return;
+        }
         $c = $this->request->getCurrentPage();
         if (!is_object($c) || $c->isError()) {
             $c = null;
         }
         if ($c !== null) {
+            // Never redirect if the page is in edit mode
             if ($c->isEditMode()) {
                 return;
             }
+            // Don't redirect users that can edit the page
             if (!$this->redirectEditors && $this->userCanEdit($c)) {
                 return;
             }
         }
+        // Never redirect users belonging to specific groups
         if ($this->dontRedirectGroupIDs !== '' && array_intersect(explode(',', $this->dontRedirectGroupIDs), $this->getCurrentUserGroups())) {
             return;
         }
+        // Never redirect visitors from specific IP addresses
         if ($this->isUserIpInList($this->dontRedirectIPs)) {
             return;
         }
+        // Redirect visitors from specific IP addresses
         if ($this->isUserIpInList($this->redirectIPs)) {
             $this->performRedirect();
 
             return;
         }
+        // Redirect users belonging to specific groups
         if ($this->redirectGroupIDs !== '' && array_intersect(explode(',', $this->redirectGroupIDs), $this->getCurrentUserGroups())) {
             $this->performRedirect();
 
