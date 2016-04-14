@@ -29,8 +29,15 @@ class Controller extends \Package
     public function install()
     {
         $pkg = parent::install();
-        if (!is_object(BlockType::getByHandle('redirect'))) {
-            BlockType::installBlockType('redirect', $pkg);
+        $bt = BlockType::getByHandle('redirect');
+        if (!is_object($bt)) {
+            $bt = BlockType::installBlockType('redirect', $pkg);
+        }
+        $bts = \BlockTypeSet::getByHandle('navigation');
+        if ($bts) {
+            if (!$bts->contains($bt)) {
+                $bts->addBlockType($bt);
+            }
         }
     }
 }
