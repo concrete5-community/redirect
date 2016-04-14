@@ -167,6 +167,9 @@ echo Core::make('helper/concrete/ui')->tabs(array(
 	    </div>
 	    <?php
 	}
+	if ($ip !== '') {
+	    ?><div class="text-muted"><?php echo t('Your IP address is %s', "<code>$ip</code>"); ?></div><?php
+	}
 	?>
 </div>
 

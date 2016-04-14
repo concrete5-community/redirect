@@ -264,6 +264,22 @@ class Controller extends \Concrete\Core\Block\BlockController
         return $errors->has() ? $errors : $normalized;
     }
 
+    public function add()
+    {
+        $this->addOrEdit();
+    }
+
+    public function edit()
+    {
+        $this->addOrEdit();
+    }
+
+    private function addOrEdit()
+    {
+        $ip = $this->getCurrentUserIP();
+        $this->set('ip', ($ip === null) ? '' : $ip->toString());
+    }
+
     /**
      * Validate the data set by user when adding/editing a block.
      *
