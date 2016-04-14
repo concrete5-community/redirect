@@ -3,6 +3,7 @@ namespace Concrete\Package\Redirect\Block\Redirect;
 
 use Exception;
 use IPLib\Factory as IPFactory;
+use Concrete\Core\Editor\LinkAbstractor;
 
 defined('C5_EXECUTE') or die('Access denied.');
 
@@ -104,7 +105,21 @@ class Controller extends \Concrete\Core\Block\BlockController
      *
      * @var int
      */
-    protected $showRedirectMessage;
+    protected $showMessage;
+
+    /**
+     * Use a custom message?
+     *
+     * @var bool
+     */
+    protected $useCustomMessage;
+
+    /**
+     * Custom message.
+     *
+     * @var string
+     */
+    protected $customMessage;
 
     /**
      * Returns the name of the block type.
@@ -227,8 +242,9 @@ class Controller extends \Concrete\Core\Block\BlockController
                     }
                 }
             }
-            $normalized['showRedirectMessage'] = (isset($data['showRedirectMessage']) && $data['showRedirectMessage']) ? (int) $data['showRedirectMessage'] : 0;
-            switch ($normalized['showRedirectMessage']) {
+            $normalized['redirectEditors'] = (isset($data['redirectEditors']) && $data['redirectEditors']) ? 1 : 0;
+            $normalized['showMessage'] = (isset($data['showMessage']) && $data['showMessage']) ? (int) $data['showMessage'] : 0;
+            switch ($normalized['showMessage']) {
                 case self::SHOWMESSAGE_NEVER:
                 case self::SHOWMESSAGE_EDITORS:
                 case self::SHOWMESSAGE_ALWAYS:
@@ -237,7 +253,12 @@ class Controller extends \Concrete\Core\Block\BlockController
                     $errors->add(t('Please specify if the message should be shown'));
                     break;
             }
-            $normalized['redirectEditors'] = (isset($data['redirectEditors']) && $data['redirectEditors']) ? 1 : 0;
+            $normalized['useCustomMessage'] = (isset($data['useCustomMessage']) && $data['useCustomMessage']) ? 1 : 0;
+            if (isset($data['customMessage']) && is_string($data['customMessage']) && $data['customMessage'] !== '') {
+                $normalized['customMessage'] = LinkAbstractor::translateTo($data['customMessage']);
+            } else {
+                $normalized['customMessage'] = '';
+            }
         }
 
         return $errors->has() ? $errors : $normalized;
@@ -443,7 +464,7 @@ class Controller extends \Concrete\Core\Block\BlockController
             $this->set('output', '<div class="ccm-edit-mode-disabled-item"><div style="padding: 10px 5px">'.t('Redirect block').'</div></div>');
         } else {
             $showMessage = false;
-            switch ($this->showRedirectMessage) {
+            switch ($this->showMessage) {
                 case self::SHOWMESSAGE_ALWAYS:
                     $showMessage = true;
                     break;
@@ -454,7 +475,15 @@ class Controller extends \Concrete\Core\Block\BlockController
                     break;
             }
             if ($showMessage) {
-                $this->set('output', '<span class="redirect-block-message">'.t('This block will redirect selected users.').'</span>');
+                if ($this->useCustomMessage) {
+                    $msg = (string) $this->customMessage;
+                    if ($msg !== '') {
+                        $msg = LinkAbstractor::translateFrom($msg);
+                    }
+                } else {
+                    $msg = '<span class="redirect-block-message">'.t('This block will redirect selected users.').'</span>';
+                }
+                $this->set('output', $msg);
             }
         }
     }

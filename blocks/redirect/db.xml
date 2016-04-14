@@ -32,8 +32,14 @@
     <field name="redirectEditors" type="boolean" comment="Redirect users that can edit the page containing the block?">
       <notnull/>
     </field>
-    <field name="showRedirectMessage" type="smallint" comment="Show a message block when the block does not redirect?">
+    <field name="showMessage" type="smallint" comment="Show a message block when the block does not redirect?">
       <unsigned/>
+      <notnull/>
+    </field>
+    <field name="useCustomMessage" type="boolean" comment="Use a custom message?">
+      <notnull/>
+    </field>
+    <field name="customMessage" type="text" comment="Custom message">
       <notnull/>
     </field>
   </table>

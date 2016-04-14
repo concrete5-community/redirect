@@ -1,4 +1,6 @@
 <?php
+use Concrete\Core\Editor\LinkAbstractor;
+
 defined('C5_EXECUTE') or die('Access denied.');
 
 /* @var \Concrete\Core\Form\Service\Form $form */
@@ -178,15 +180,39 @@ echo Core::make('helper/concrete/ui')->tabs(array(
 		</div>
 	</div>
 	<div class="form-group">
-		<?php echo $form->label('showRedirectMessage', t('Show block message')); ?>
+		<?php echo $form->label('showMessage', t('Show block message')); ?>
 		<?php echo $form->select(
-            'showRedirectMessage',
+            'showMessage',
             array(
                 $controller::SHOWMESSAGE_NEVER => t('Never'),
                 $controller::SHOWMESSAGE_EDITORS => t('Only for users that can edit the page contents'),
                 $controller::SHOWMESSAGE_ALWAYS => t('Always'),
             ),
-            isset($showRedirectMessage) ? $showRedirectMessage : $controller::SHOWMESSAGE_EDITORS
+            isset($showMessage) ? $showMessage : $controller::SHOWMESSAGE_EDITORS
         ); ?>
 	</div>
+	<?php
+	$useCustomMessage = isset($useCustomMessage) ? (bool) $useCustomMessage : false;
+	?>
+	<div class="form-group">
+		<div class="checkbox">
+			<label>
+				<?php echo $form->checkbox('useCustomMessage', '1', $useCustomMessage); ?>
+				<?php echo t('Use a custom message'); ?>
+			</label>
+		</div>
+	</div>
+	<div class="form-group" id="reblo-customMessage"<?php echo $useCustomMessage ? '' : ' style="display: none"'; ?>>
+		<?php echo $form->label('customMessage', t('Custom message')); ?>
+        <?php echo Core::make('editor')->outputBlockEditModeEditor('customMessage', isset($customMessage) ? LinkAbstractor::translateFromEditMode($customMessage) : ''); ?>
+    </div>
+
+	<script>
+	$(document).ready(function() {
+		$('#ccm-tab-content-redirect-options .redactor-editor').css({'min-height': '0px', height: '100px'});
+		$('#ccm-tab-content-redirect-options #useCustomMessage').on('change', function() {
+			$('#ccm-tab-content-redirect-options #reblo-customMessage')[this.checked ? 'show' : 'hide']();
+		});
+	});
+	</script>
 </div>
