@@ -154,7 +154,9 @@ class Controller extends \Concrete\Core\Block\BlockController
     protected static function loadComposer()
     {
         if (static::$composerLoaded === false) {
-            require_once \Package::getByHandle('redirect')->getPackagePath().'/vendor/autoload.php';
+            if (!class_exists('\IPLib\Factory', true)) {
+                require_once \Package::getByHandle('redirect')->getPackagePath().'/vendor/autoload.php';
+            }
             static::$composerLoaded = true;
         }
     }
