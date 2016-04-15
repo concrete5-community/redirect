@@ -1,14 +1,14 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: redirect 0.9.2\n"
+"Project-Id-Version: redirect 0.9.3\n"
 "Report-Msgid-Bugs-To: \n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2016-04-14T20:19:52+02:00\n"
-"PO-Revision-Date: 2016-04-14T20:19:52+02:00\n"
+"POT-Creation-Date: 2016-04-15T08:28:32+02:00\n"
+"PO-Revision-Date: 2016-04-15T08:28:32+02:00\n"
 "Language: it_IT\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
 
@@ -25,38 +25,38 @@ msgstr "Questo pacchetto offre un blocco per fare il redirect degli utenti."
 msgid "Redirect specific users to another page."
 msgstr "Reindirizza specifici utenti verso un’altra pagina."
 
-#: packages/redirect/blocks/redirect/controller.php:178
+#: packages/redirect/blocks/redirect/controller.php:180
 msgid "No data received"
 msgstr "Nessun dato ricevuto"
 
-#: packages/redirect/blocks/redirect/controller.php:187
-#: packages/redirect/blocks/redirect/controller.php:198
+#: packages/redirect/blocks/redirect/controller.php:189
+#: packages/redirect/blocks/redirect/controller.php:200
 msgid "Please specify the destination page"
 msgstr "Specificare la pagina di destinazione"
 
-#: packages/redirect/blocks/redirect/controller.php:191
-#: packages/redirect/blocks/redirect/controller.php:204
+#: packages/redirect/blocks/redirect/controller.php:193
+#: packages/redirect/blocks/redirect/controller.php:206
 msgid "The destination page is the current page."
 msgstr "La pagina di destinazione è la pagina corrente."
 
-#: packages/redirect/blocks/redirect/controller.php:210
+#: packages/redirect/blocks/redirect/controller.php:212
 msgid "Please specify the kind of the destination page"
 msgstr "Specificare il tipo della pagina di destinazione"
 
-#: packages/redirect/blocks/redirect/controller.php:234
+#: packages/redirect/blocks/redirect/controller.php:236
 #, php-format
 msgid "Invalid IP address: %s"
 msgstr "Indirizzo IP non valido: %s"
 
-#: packages/redirect/blocks/redirect/controller.php:253
+#: packages/redirect/blocks/redirect/controller.php:255
 msgid "Please specify if the message should be shown"
 msgstr "Specificare se il messaggio va mostrato"
 
-#: packages/redirect/blocks/redirect/controller.php:480
+#: packages/redirect/blocks/redirect/controller.php:482
 msgid "Redirect block"
 msgstr "Blocco redirect"
 
-#: packages/redirect/blocks/redirect/controller.php:500
+#: packages/redirect/blocks/redirect/controller.php:502
 msgid "This block will redirect selected users."
 msgstr "Questo blocco reindirizzerà gli utenti selezionati."
 
