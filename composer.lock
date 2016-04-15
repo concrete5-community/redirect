@@ -4,8 +4,8 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "18d587cde072815f4b7b11edc3bd6309",
-    "content-hash": "6d67a538805f03b7ae7e2fd59463e277",
+    "hash": "2ef4d289871e926e724d10eb0692b79e",
+    "content-hash": "101759fb48e9959fb2ee433a3d6d7d96",
     "packages": [
         {
             "name": "mlocati/ip-lib",
@@ -65,6 +65,8 @@
     "stability-flags": [],
     "prefer-stable": false,
     "prefer-lowest": false,
-    "platform": [],
+    "platform": {
+        "php": ">=5.3.3"
+    },
     "platform-dev": []
 }
