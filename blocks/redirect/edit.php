@@ -1,16 +1,31 @@
 <?php
 use Concrete\Core\Editor\LinkAbstractor;
 
+/* @var Concrete\Package\Redirect\Block\Redirect\Controller $controller */
+/* @var Concrete\Core\Form\Service\Form $form */
+/* @var Concrete\Core\Block\View\BlockView $this */
+/* @var Concrete\Core\Block\View\BlockView $view */
+
+/* @var int|null $redirectToCID */
+/* @var string|null $redirectToURL */
+/* @var string|null $redirectGroupIDs */
+/* @var string|null $dontRedirectGroupIDs */
+/* @var string|null $redirectIPs */
+/* @var string|null $dontRedirectIPs */
+/* @var string $myIP */
+/* @var int|null $redirectEditors */
+/* @var int|null $showMessage */
+/* @var int|null $useCustomMessage */
+/* @var string|null $customMessage */
+
 defined('C5_EXECUTE') or die('Access denied.');
 
-/* @var \Concrete\Core\Form\Service\Form $form */
-
-echo Core::make('helper/concrete/ui')->tabs(array(
-    array('redirect-to', t('Destination page'), true),
-    array('redirect-by-usergroup', t('Redirect by user groups')),
-    array('redirect-by-ip', t('Redirect by IP address')),
-    array('redirect-options', t('Options')),
-));
+echo Core::make('helper/concrete/ui')->tabs([
+    ['redirect-to', t('Destination page'), true],
+    ['redirect-by-usergroup', t('Redirect by user groups')],
+    ['redirect-by-ip', t('Redirect by IP address')],
+    ['redirect-options', t('Options')],
+]);
 
 ?>
 
@@ -18,7 +33,7 @@ echo Core::make('helper/concrete/ui')->tabs(array(
 	<?php
         $redirectToCID = isset($redirectToCID) ? (int) $redirectToCID : 0;
         $redirectToURL = isset($redirectToURL) ? (string) $redirectToURL : '';
-        $options = array();
+        $options = [];
         if ($redirectToCID === 0 && $redirectToURL === '') {
             $options[''] = t('Please select');
             $selected = '';
@@ -33,15 +48,15 @@ echo Core::make('helper/concrete/ui')->tabs(array(
         }
     ?>
 	<div class="form-group">
-		<?php echo $form->select('redirectToType', $options, $selected); ?>
+		<?= $form->select('redirectToType', $options, $selected) ?>
 	</div>
-	<div class="form-group redirect-to-type redirect-to-type-cid"<?php echo $selected === 'cid' ? '' : ' style="display: none;"'; ?>>
-		<?php echo $form->label('redirectToCID', t('Choose page')); ?>
-		<?php echo Core::make('helper/form/page_selector')->selectPage('redirectToCID', $redirectToCID); ?>
+	<div class="form-group redirect-to-type redirect-to-type-cid"<?= $selected === 'cid' ? '' : ' style="display: none;"' ?>>
+		<?= $form->label('redirectToCID', t('Choose page')) ?>
+		<?= Core::make('helper/form/page_selector')->selectPage('redirectToCID', $redirectToCID) ?>
 	</div>
-	<div class="form-group redirect-to-type redirect-to-type-url"<?php echo $selected === 'url' ? '' : ' style="display: none;"'; ?>>
-		<?php echo $form->label('redirectToURL', t('URL')); ?>
-		<?php echo $form->text('redirectToURL', $redirectToURL); ?>
+	<div class="form-group redirect-to-type redirect-to-type-url"<?= $selected === 'url' ? '' : ' style="display: none;"' ?>>
+		<?= $form->label('redirectToURL', t('URL')) ?>
+		<?= $form->text('redirectToURL', $redirectToURL) ?>
 	</div>
 	<script>
 		$(document).ready(function() {
@@ -56,39 +71,36 @@ echo Core::make('helper/concrete/ui')->tabs(array(
 
 <div class="ccm-tab-content" id="ccm-tab-content-redirect-by-usergroup">
 	<?php
-    $groups = array();
-    foreach (array(
-        array('redirectGroupIDs', t('Redirect members of these groups')),
-        array('dontRedirectGroupIDs', t('Never redirect members of these groups')),
-    ) as $info) {
+    $groups = [];
+    foreach ([
+        ['redirectGroupIDs', t('Redirect members of these groups')],
+        ['dontRedirectGroupIDs', t('Never redirect members of these groups')],
+    ] as $info) {
         $varName = $info[0];
-        $groups[$varName] = array();
-        $list = isset($$varName) ? preg_split('/\D+/', $$varName, -1, PREG_SPLIT_NO_EMPTY) : array();
+        $groups[$varName] = [];
+        $list = isset($$varName) ? preg_split('/\D+/', $$varName, -1, PREG_SPLIT_NO_EMPTY) : [];
         foreach ($list as $gID) {
-            $g = \Group::getByID($gID);
+            $g = Group::getByID($gID);
             if ($g !== null) {
                 $groups[$varName][$g->getGroupID()] = $g->getGroupDisplayName(false);
             }
-        }
-        ?>
-	    <fieldset>
-	    	<legend>
-	    		<?php echo $info[1]; ?>
-    			<a
-    				class="btn btn-default btn-xs pull-right"
-    				data-button="assign-groups"
-    				dialog-width="640"
-    				dialog-height="480"
-    				dialog-title="<?php echo t('Select group') ?>"
-    				dialog-modal="true"
-    				dialog-on-open="<?php echo h('window.redirectBlockCurrentRedirectGroup = '.json_encode($varName)); ?>"
-    				dialog-on-close="window.redirectBlockCurrentRedirectGroup = null"
-    				href="<?php echo URL::to('/ccm/system/dialogs/group/search') ?>"
-    			><?php echo t('Select group') ?></a>
-	    	</legend>
+        } ?>
+        <div class="form-group">
+			<a
+				class="btn btn-default btn-xs pull-right"
+				data-button="assign-groups"
+				dialog-width="640"
+				dialog-height="480"
+				dialog-title="<?= t('Select group') ?>"
+				dialog-modal="true"
+				dialog-on-open="<?= h('window.redirectBlockCurrentRedirectGroup = ' . json_encode($varName)) ?>"
+				dialog-on-close="window.redirectBlockCurrentRedirectGroup = null"
+				href="<?= URL::to('/ccm/system/dialogs/group/search') ?>"
+			><?= t('Select group') ?></a>
+            <?= $form->label('', $info[1]) ?>
 	    	<div class="redirect-group-list"></div>
-	    	<?php echo $form->hidden($varName, ''); ?>
-	    </fieldset>
+	    	<?= $form->hidden($varName, '') ?>
+	    </div>
 	    <?php
     }
     ?>
@@ -96,7 +108,8 @@ echo Core::make('helper/concrete/ui')->tabs(array(
 	window.redirectBlockCurrentRedirectGroup = null;
 	$(document).ready(function() {
 		function addGroup(category, id, name, initializing) {
-			var $value = $('#' + category), $parent = $value.closest('fieldset'), cls = initializing ? 'row' : 'row animated bounceIn', $container;
+            debugger;
+			var $value = $('#' + category), $parent = $value.closest('.form-group'), cls = initializing ? 'row' : 'row animated bounceIn', $container;
 			$value.val(($value.val() === '') ? ('|' + id + '|') : ($value.val() + id + '|')); 
 			$parent.find('div.redirect-group-list').append($container = $('<div class="' + cls + '" />')
 				.attr('data-group-id', id)
@@ -122,8 +135,7 @@ echo Core::make('helper/concrete/ui')->tabs(array(
 		<?php
         foreach ($groups as $groupsCategory => $groupsList) {
             foreach ($groupsList as $gID => $gName) {
-                ?>addGroup(<?php echo json_encode($groupsCategory); ?>, <?php echo $gID; ?>, <?php echo json_encode($gName); ?>, true);<?php
-
+                ?>addGroup(<?= json_encode($groupsCategory) ?>, <?= $gID ?>, <?= json_encode($gName) ?>, true);<?php
             }
         }
         ?>
@@ -142,72 +154,71 @@ echo Core::make('helper/concrete/ui')->tabs(array(
 
 <div class="ccm-tab-content" id="ccm-tab-content-redirect-by-ip">
 	<?php
-	foreach (array(
-	    array('redirectIPs', t('Redirect these IP addresses')),
-	    array('dontRedirectIPs', t('Never redirect these IP addresses')),
-	) as $info) {
-	    $varName = $info[0];
-	    $value = isset($$varName) ? implode("\n", preg_split('/[\\s,]+/', str_replace('|', ' ', $$varName), -1, PREG_SPLIT_NO_EMPTY)) : '';
-	    ?>
+    foreach ([
+        ['redirectIPs', t('Redirect these IP addresses')],
+        ['dontRedirectIPs', t('Never redirect these IP addresses')],
+    ] as $info) {
+        $varName = $info[0];
+        $value = isset($$varName) ? implode("\n", preg_split('/[\\s,]+/', str_replace('|', ' ', $$varName), -1, PREG_SPLIT_NO_EMPTY)) : ''; ?>
 	    <div class="form-group">
-	    	<?php echo $form->label(
-	    	    $varName,
-	    	    $info[1],
-	    	    array(
-    	    	    'class' => 'launch-tooltip',
-	    	        'data-placement' => 'right',
-	    	        'data-html' => 'true',
-	    	        'title' => t(
-	    	            "Separate multiple values by spaces, new lines or commas.<br />IPv4 and IPv6 addresses are supported.<br />You can specify single IP addresses as well as ranges (examples: %s)",
-	    	            \Punic\Misc::join(array('<code>100.200.*.*</code>', '<code>100.200.0.0/16</code>', '<code>1:2::0/8</code>', '<code>1:2::*:*</code>)'))
-	    	        ),
-	    	    )
-	    	); ?>
-        	<?php echo $form->textarea($varName, $value, array('rows' => '5', 'style' => 'resize: vertical;')); ?>
+	    	<?= $form->label(
+                $varName,
+                $info[1],
+                [
+                    'class' => 'launch-tooltip',
+                    'data-placement' => 'right',
+                    'data-html' => 'true',
+                    'title' => t(
+                        'Separate multiple values by spaces, new lines or commas.<br />IPv4 and IPv6 addresses are supported.<br />You can specify single IP addresses as well as ranges (examples: %s)',
+                        \Punic\Misc::join(['<code>100.200.*.*</code>', '<code>100.200.0.0/16</code>', '<code>1:2::0/8</code>', '<code>1:2::*:*</code>)'])
+                    ),
+                ]
+            ) ?>
+        	<?= $form->textarea($varName, $value, ['rows' => '5', 'style' => 'resize: vertical;']) ?>
 	    </div>
 	    <?php
-	}
-	if ($ip !== '') {
-	    ?><div class="text-muted"><?php echo t('Your IP address is %s', "<code>$ip</code>"); ?></div><?php
-	}
-	?>
+    }
+    if ($myIP !== '') {
+        ?><div class="text-muted"><?= t('Your IP address is %s', "<code>$myIP</code>") ?></div><?php
+    }
+    ?>
 </div>
 
 <div class="ccm-tab-content" id="ccm-tab-content-redirect-options">
 	<div class="form-group">
 		<div class="checkbox">
 			<label>
-				<?php echo $form->checkbox('redirectEditors', '1', isset($redirectEditors) ? $redirectEditors : '0'); ?>
-				<?php echo t('Redirect users with permission to edit the page contents'); ?>
+				<?= $form->checkbox('redirectEditors', '1', isset($redirectEditors) ? $redirectEditors : '0') ?>
+				<?= t('Redirect users with permission to edit the page contents') ?>
 			</label>
 		</div>
 	</div>
 	<div class="form-group">
-		<?php echo $form->label('showMessage', t('Show block message')); ?>
-		<?php echo $form->select(
+		<?= $form->label('showMessage', t('Show block message')) ?>
+		<?= $form->select(
             'showMessage',
-            array(
+            [
                 $controller::SHOWMESSAGE_NEVER => t('Never'),
                 $controller::SHOWMESSAGE_EDITORS => t('Only for users that can edit the page contents'),
                 $controller::SHOWMESSAGE_ALWAYS => t('Always'),
-            ),
+            ],
             isset($showMessage) ? $showMessage : $controller::SHOWMESSAGE_EDITORS
-        ); ?>
+        ) ?>
 	</div>
 	<?php
-	$useCustomMessage = isset($useCustomMessage) ? (bool) $useCustomMessage : false;
-	?>
+    $useCustomMessage = isset($useCustomMessage) ? (bool) $useCustomMessage : false;
+    ?>
 	<div class="form-group">
 		<div class="checkbox">
 			<label>
-				<?php echo $form->checkbox('useCustomMessage', '1', $useCustomMessage); ?>
-				<?php echo t('Use a custom message'); ?>
+				<?= $form->checkbox('useCustomMessage', '1', $useCustomMessage) ?>
+				<?= t('Use a custom message') ?>
 			</label>
 		</div>
 	</div>
-	<div class="form-group" id="reblo-customMessage"<?php echo $useCustomMessage ? '' : ' style="display: none"'; ?>>
-		<?php echo $form->label('customMessage', t('Custom message')); ?>
-        <?php echo Core::make('editor')->outputBlockEditModeEditor('customMessage', isset($customMessage) ? LinkAbstractor::translateFromEditMode($customMessage) : ''); ?>
+	<div class="form-group" id="reblo-customMessage"<?= $useCustomMessage ? '' : ' style="display: none"' ?>>
+		<?= $form->label('customMessage', t('Custom message')) ?>
+        <?= Core::make('editor')->outputBlockEditModeEditor('customMessage', isset($customMessage) ? LinkAbstractor::translateFromEditMode($customMessage) : '') ?>
     </div>
 
 	<script>

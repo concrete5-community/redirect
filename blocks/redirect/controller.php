@@ -1,13 +1,20 @@
 <?php
 namespace Concrete\Package\Redirect\Block\Redirect;
 
-use Exception;
-use IPLib\Factory as IPFactory;
+use Concrete\Core\Block\BlockController;
 use Concrete\Core\Editor\LinkAbstractor;
+use Concrete\Core\Http\Response;
+use Concrete\Core\Http\ResponseFactoryInterface;
+use Concrete\Core\Page\Page;
+use Concrete\Core\Permission\Checker;
+use Exception;
+use Group;
+use IPLib\Factory as IPFactory;
+use User;
 
 defined('C5_EXECUTE') or die('Access denied.');
 
-class Controller extends \Concrete\Core\Block\BlockController
+class Controller extends BlockController
 {
     /**
      * Never show message.
@@ -42,14 +49,14 @@ class Controller extends \Concrete\Core\Block\BlockController
      *
      * @var int
      */
-    protected $btInterfaceWidth = 700;
+    protected $btInterfaceWidth = 750;
 
     /**
      * Height of the add/edit dialog.
      *
      * @var int
      */
-    protected $btInterfaceHeight = 450;
+    protected $btInterfaceHeight = 460;
 
     /**
      * Destination page: collection ID.
@@ -122,9 +129,9 @@ class Controller extends \Concrete\Core\Block\BlockController
     protected $customMessage;
 
     /**
-     * Returns the name of the block type.
+     * {@inheritdoc}
      *
-     * @return string
+     * @see BlockController::getBlockTypeName()
      */
     public function getBlockTypeName()
     {
@@ -132,33 +139,13 @@ class Controller extends \Concrete\Core\Block\BlockController
     }
 
     /**
-     * Returns the description of the block type.
+     * {@inheritdoc}
      *
-     * @return string
+     * @see BlockController::getBlockTypeDescription()
      */
     public function getBlockTypeDescription()
     {
-        return t("Redirect specific users to another page.");
-    }
-
-    /**
-     * Is Composer stuff already loaded?
-     *
-     * @var bool
-     */
-    protected static $composerLoaded = false;
-
-    /**
-     * Include Composer stuff, if not already loaded.
-     */
-    protected static function loadComposer()
-    {
-        if (static::$composerLoaded === false) {
-            if (!class_exists('\IPLib\Factory', true)) {
-                require_once \Package::getByHandle('redirect')->getPackagePath().'/vendor/autoload.php';
-            }
-            static::$composerLoaded = true;
-        }
+        return t('Redirect specific users to another page.');
     }
 
     /**
@@ -166,20 +153,16 @@ class Controller extends \Concrete\Core\Block\BlockController
      *
      * @param array $data
      *
-     * @return \Concrete\Core\Error\Error|array
+     * @return \Concrete\Core\Error\ErrorList\ErrorList|array
      */
     private function normalize($data)
     {
-        if (!isset($this->app)) {
-            $this->app = \Core::make('app');
-        }
         $errors = $this->app->make('helper/validation/error');
-        /* @var \Concrete\Core\Error\Error $errors */
-        $normalized = array();
+        /* @var \Concrete\Core\Error\ErrorList\ErrorList $errors */
+        $normalized = [];
         if (!is_array($data) || empty($data)) {
             $errors->add(t('No data received'));
         } else {
-            static::loadComposer();
             $normalized['redirectToCID'] = 0;
             $normalized['redirectToURL'] = '';
             switch (isset($data['redirectToType']) ? $data['redirectToType'] : '') {
@@ -188,8 +171,8 @@ class Controller extends \Concrete\Core\Block\BlockController
                     if ($normalized['redirectToCID'] <= 0) {
                         $errors->add(t('Please specify the destination page'));
                     } else {
-                        $c = \Page::getCurrentPage();
-                        if (is_object($c) && !$c->isError() && $c->getCollectionID() == $normalized['redirectToCID']) {
+                        $c = $this->getCurrentPage();
+                        if ($c !== null && $c->getCollectionID() == $normalized['redirectToCID']) {
                             $errors->add(t('The destination page is the current page.'));
                         }
                     }
@@ -199,9 +182,9 @@ class Controller extends \Concrete\Core\Block\BlockController
                     if ($normalized['redirectToURL'] === '') {
                         $errors->add(t('Please specify the destination page'));
                     } else {
-                        $c = \Page::getCurrentPage();
-                        if (is_object($c) && !$c->isError()) {
-                            $myURL = (string) \URL::to($c);
+                        $c = $this->getCurrentPage();
+                        if ($c !== null) {
+                            $myURL = (string) $this->app->make('url/manager')->resolve([$c]);
                             if (rtrim($myURL, '/') === rtrim($normalized['redirectToURL'], '/')) {
                                 $errors->add(t('The destination page is the current page.'));
                             }
@@ -212,22 +195,22 @@ class Controller extends \Concrete\Core\Block\BlockController
                     $errors->add(t('Please specify the kind of the destination page'));
                     break;
             }
-            foreach (array('redirectGroupIDs', 'dontRedirectGroupIDs') as $var) {
-                $list = array();
+            foreach (['redirectGroupIDs', 'dontRedirectGroupIDs'] as $var) {
+                $list = [];
                 if (isset($data[$var]) && is_string($data[$var])) {
                     foreach (preg_split('/\D+/', $data[$var], -1, PREG_SPLIT_NO_EMPTY) as $gID) {
                         $gID = (int) $gID;
-                        if ($gID > 0 && !in_array($gID, $list, true) && \Group::getByID($gID) !== null) {
+                        if ($gID > 0 && !in_array($gID, $list, true) && Group::getByID($gID) !== null) {
                             $list[] = $gID;
                         }
                     }
                 }
                 $normalized[$var] = implode(',', $list);
             }
-            foreach (array('redirectIPs', 'dontRedirectIPs') as $f) {
+            foreach (['redirectIPs', 'dontRedirectIPs'] as $f) {
                 $normalized[$f] = '';
                 if (isset($data[$f])) {
-                    $v = array();
+                    $v = [];
                     foreach (preg_split('/[\\s,]+/', str_replace('|', ' ', (string) $data[$f]), -1, PREG_SPLIT_NO_EMPTY) as $s) {
                         $s = trim($s);
                         if ($s !== '') {
@@ -279,13 +262,13 @@ class Controller extends \Concrete\Core\Block\BlockController
     private function addOrEdit()
     {
         $ip = $this->getCurrentUserIP();
-        $this->set('ip', ($ip === null) ? '' : $ip->toString());
+        $this->set('myIP', ($ip === null) ? '' : $ip->toString());
     }
 
     /**
      * Validate the data set by user when adding/editing a block.
      *
-     * @return \Concrete\Core\Error\Error|null
+     * @return \Concrete\Core\Error\ErrorList\ErrorList|null
      */
     public function validate($data)
     {
@@ -309,17 +292,36 @@ class Controller extends \Concrete\Core\Block\BlockController
     }
 
     /**
+     * Get the current page.
+     *
+     * @return Page|null
+     */
+    private function getCurrentPage()
+    {
+        static $result;
+        if (!isset($result)) {
+            $result = false;
+            $c = $this->request->getCurrentPage();
+            if (is_object($c) && !$c->isError()) {
+                $result = $c;
+            }
+        }
+
+        return ($result === false) ? null : $result;
+    }
+
+    /**
      * Get the currently logged in user.
      *
-     * @return \User|null
+     * @return User|null
      */
     private function getCurrentUser()
     {
         static $result;
         if (!isset($result)) {
             $result = false;
-            if (\User::isLoggedIn()) {
-                $u = new \User();
+            if (User::isLoggedIn()) {
+                $u = new User();
                 if ($u->isRegistered()) {
                     $result = $u;
                 }
@@ -338,7 +340,7 @@ class Controller extends \Concrete\Core\Block\BlockController
     {
         static $result;
         if (!isset($result)) {
-            $result = array();
+            $result = [];
             $me = $this->getCurrentUser();
             if ($me === null) {
                 $result[] = (string) GUEST_GROUP_ID;
@@ -347,7 +349,7 @@ class Controller extends \Concrete\Core\Block\BlockController
                 foreach ($me->getUserGroups() as $gID) {
                     $gID = (string) $gID;
                     if ($gID != GUEST_GROUP_ID && $gID != REGISTERED_GROUP_ID) {
-                        $result[] = (string) $gID;
+                        $result[] = $gID;
                     }
                 }
             }
@@ -357,18 +359,18 @@ class Controller extends \Concrete\Core\Block\BlockController
     }
 
     /**
-     * @param \Concrete\Core\Page\Page $c
+     * @param Page $c
      *
      * @return bool
      */
-    private function userCanEdit(\Concrete\Core\Page\Page $c)
+    private function userCanEdit(Page $c)
     {
         static $canEdit;
         if (!isset($canEdit)) {
             $canEdit = false;
             $me = $this->getCurrentUser();
             if ($me !== null) {
-                $cp = new \Permissions($c);
+                $cp = new Checker($c);
                 if ($cp->canEditPageContents()) {
                     $canEdit = true;
                 }
@@ -380,13 +382,21 @@ class Controller extends \Concrete\Core\Block\BlockController
 
     private function performRedirect()
     {
+        $destinationURL = null;
         if ($this->redirectToCID) {
-            $to = \Page::getByID($this->redirectToCID);
+            $to = Page::getByID($this->redirectToCID);
             if (is_object($to) && (!$to->isError())) {
-                $this->redirect($to);
+                $destinationURL = (string) $this->app->make('url/manager')->resolve([$to]);
             }
         } elseif (is_string($this->redirectToURL) && $this->redirectToURL !== '') {
-            $this->redirect($this->redirectToURL);
+            $destinationURL = $this->redirectToURL;
+        }
+
+        if ($destinationURL !== null) {
+            $rf = $this->app->make(ResponseFactoryInterface::class);
+            $response = $rf->redirect($destinationURL, Response::HTTP_FOUND);
+            $response->send();
+            exit();
         }
     }
 
@@ -397,7 +407,6 @@ class Controller extends \Concrete\Core\Block\BlockController
     {
         static $result;
         if (!isset($result)) {
-            static::loadComposer();
             $ip = IPFactory::addressFromString($this->request->getClientIp());
             $result = ($ip === null) ? false : $ip;
         }
@@ -410,7 +419,7 @@ class Controller extends \Concrete\Core\Block\BlockController
      *
      * @return bool
      */
-    protected function isUserIpInList($ipList)
+    private function isUserIpInList($ipList)
     {
         $result = false;
         if ($ipList !== '') {
@@ -433,13 +442,10 @@ class Controller extends \Concrete\Core\Block\BlockController
     {
         $user = $this->getCurrentUser();
         // Never redirect the administrator
-        if ($user !== null && $user->getUserID() == USER_SUPER_ID) {
+        if ($user !== null && $user->isSuperUser()) {
             return;
         }
-        $c = $this->request->getCurrentPage();
-        if (!is_object($c) || $c->isError()) {
-            $c = null;
-        }
+        $c = $this->getCurrentPage();
         if ($c !== null) {
             // Never redirect if the page is in edit mode
             if ($c->isEditMode()) {
@@ -450,36 +456,34 @@ class Controller extends \Concrete\Core\Block\BlockController
                 return;
             }
         }
+        // Never redirect visitors from specific IP addresses
+        if ($this->dontRedirectIPs && $this->isUserIpInList($this->dontRedirectIPs)) {
+            return;
+        }
         // Never redirect users belonging to specific groups
         if ($this->dontRedirectGroupIDs !== '' && array_intersect(explode(',', $this->dontRedirectGroupIDs), $this->getCurrentUserGroups())) {
             return;
         }
-        // Never redirect visitors from specific IP addresses
-        if ($this->isUserIpInList($this->dontRedirectIPs)) {
-            return;
-        }
+        $redirect = false;
         // Redirect visitors from specific IP addresses
-        if ($this->isUserIpInList($this->redirectIPs)) {
-            $this->performRedirect();
-
-            return;
+        if ($redirect === false && $this->redirectIPs && $this->isUserIpInList($this->redirectIPs)) {
+            $redirect = true;
         }
         // Redirect users belonging to specific groups
-        if ($this->redirectGroupIDs !== '' && array_intersect(explode(',', $this->redirectGroupIDs), $this->getCurrentUserGroups())) {
-            $this->performRedirect();
+        if ($redirect === false && $this->redirectGroupIDs !== '' && array_intersect(explode(',', $this->redirectGroupIDs), $this->getCurrentUserGroups())) {
+            $redirect = true;
+        }
 
-            return;
+        if ($redirect) {
+            $this->performRedirect();
         }
     }
 
     public function view()
     {
-        $c = $this->request->getCurrentPage();
-        if (!is_object($c) || $c->isError()) {
-            $c = null;
-        }
+        $c = $this->getCurrentPage();
         if ($c !== null && $c->isEditMode()) {
-            $this->set('output', '<div class="ccm-edit-mode-disabled-item"><div style="padding: 10px 5px">'.t('Redirect block').'</div></div>');
+            $this->set('output', '<div class="ccm-edit-mode-disabled-item"><div style="padding: 10px 5px">' . t('Redirect block') . '</div></div>');
         } else {
             $showMessage = false;
             switch ($this->showMessage) {
@@ -499,7 +503,7 @@ class Controller extends \Concrete\Core\Block\BlockController
                         $msg = LinkAbstractor::translateFrom($msg);
                     }
                 } else {
-                    $msg = '<span class="redirect-block-message">'.t('This block will redirect selected users.').'</span>';
+                    $msg = '<span class="redirect-block-message">' . t('This block will redirect selected users.') . '</span>';
                 }
                 $this->set('output', $msg);
             }

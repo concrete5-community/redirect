@@ -29,7 +29,6 @@
         "source": "https://github.com/mlocati/concrete5_addon_redirect"
     },
     "require": {
-        "php": ">=5.3.3",
-        "mlocati/ip-lib": "1.*"
+        "php": ">=5.3.3"
     }
 }

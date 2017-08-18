@@ -1,31 +1,60 @@
 <?php
 namespace Concrete\Package\Redirect;
 
-use BlockType;
+use Concrete\Core\Block\BlockType\BlockType;
+use Concrete\Core\Block\BlockType\Set as BlockTypeSet;
+use Concrete\Core\Package\Package;
 
 defined('C5_EXECUTE') or die('Access denied.');
 
-/**
- * The ProgePack package controller.
- */
-class Controller extends \Package
+class Controller extends Package
 {
+    /**
+     * The package handle.
+     *
+     * @var string
+     */
     protected $pkgHandle = 'redirect';
 
-    protected $appVersionRequired = '5.7.5';
+    /**
+     * The package version.
+     *
+     * @var string
+     */
+    protected $pkgVersion = '2.0.0';
 
-    protected $pkgVersion = '1.0.0';
+    /**
+     * The minimum concrete5 version.
+     *
+     * @var string
+     */
+    protected $appVersionRequired = '8.2.0';
 
+    /**
+     * {@inheritdoc}
+     *
+     * @see Package::getPackageName()
+     */
     public function getPackageName()
     {
         return t('Redirect');
     }
 
+    /**
+     * {@inheritdoc}
+     *
+     * @see Package::getPackageDescription()
+     */
     public function getPackageDescription()
     {
         return t('This package offers a block to redirect users.');
     }
 
+    /**
+     * {@inheritdoc}
+     *
+     * @see Package::install()
+     */
     public function install()
     {
         $pkg = parent::install();
@@ -33,7 +62,7 @@ class Controller extends \Package
         if (!is_object($bt)) {
             $bt = BlockType::installBlockType('redirect', $pkg);
         }
-        $bts = \BlockTypeSet::getByHandle('navigation');
+        $bts = BlockTypeSet::getByHandle('navigation');
         if ($bts) {
             if (!$bts->contains($bt)) {
                 $bts->addBlockType($bt);
