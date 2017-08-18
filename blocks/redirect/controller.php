@@ -394,7 +394,7 @@ class Controller extends BlockController
 
         if ($destinationURL !== null) {
             $rf = $this->app->make(ResponseFactoryInterface::class);
-            $response = $rf->redirect($destinationURL, Response::HTTP_FOUND);
+            $response = $rf->redirect($destinationURL, Response::HTTP_TEMPORARY_REDIRECT);
             $response->send();
             exit();
         }
