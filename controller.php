@@ -3,11 +3,12 @@ namespace Concrete\Package\Redirect;
 
 use Concrete\Core\Block\BlockType\BlockType;
 use Concrete\Core\Block\BlockType\Set as BlockTypeSet;
+use Concrete\Core\Database\EntityManager\Provider\ProviderInterface;
 use Concrete\Core\Package\Package;
 
 defined('C5_EXECUTE') or die('Access denied.');
 
-class Controller extends Package
+class Controller extends Package implements ProviderInterface
 {
     /**
      * The package handle.
@@ -29,6 +30,15 @@ class Controller extends Package
      * @var string
      */
     protected $appVersionRequired = '8.2.0';
+
+    /**
+     * {@inheritdoc}
+     *
+     * @see \Concrete\Core\Package\Package::$pkgAutoloaderRegistries
+     */
+    protected $pkgAutoloaderRegistries = [
+        'src' => 'MLRedirect',
+    ];
 
     /**
      * {@inheritdoc}
@@ -68,5 +78,15 @@ class Controller extends Package
                 $bts->addBlockType($bt);
             }
         }
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * @see \Concrete\Core\Database\EntityManager\Provider\ProviderInterface::getDrivers()
+     */
+    public function getDrivers()
+    {
+        return [];
     }
 }

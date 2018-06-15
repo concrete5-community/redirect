@@ -12,22 +12,28 @@
 		"user",
 		"users",
 		"visitors",
-		"browse"
+		"browse",
+		"ip",
+		"range",
+		"os",
+		"operating system",
+		"group",
+		"groups"
 	],
 	"homepage" : "https://www.concrete5.org/marketplace/addons/redirect/",
 	"license" : "MIT",
 	"authors" : [{
 			"name" : "Michele Locati",
 			"email" : "michele@locati.it",
-			"homepage" : "https://github.com/mlocati",
-			"role" : "Developer"
+			"homepage" : "https://mlocati.github.io/",
+			"role" : "Author"
 		}
 	],
 	"support" : {
-		"issues" : "https://www.concrete5.org/marketplace/addons/redirect/support",
+		"issues" : "https://github.com/mlocati/concrete5_addon_redirect/issues",
 		"source" : "https://github.com/mlocati/concrete5_addon_redirect"
 	},
 	"require" : {
-		"php" : ">=5.3.3"
+		"piwik/device-detector" : "^3.10"
 	}
 }

@@ -1,4 +1,6 @@
 <?php
 defined('C5_EXECUTE') or die('Access denied.');
 
-$this->inc('edit.php');
+/* @var Concrete\Core\Block\View\BlockView $view */
+
+$view->inc('edit.php');

@@ -1,4 +1,5 @@
 <?php
+
 namespace Concrete\Package\Redirect\Block\Redirect;
 
 use Concrete\Core\Block\BlockController;
@@ -10,6 +11,7 @@ use Concrete\Core\Permission\Checker;
 use Exception;
 use Group;
 use IPLib\Factory as IPFactory;
+use MLRedirect\OSDetector;
 use User;
 
 defined('C5_EXECUTE') or die('Access denied.');
@@ -101,6 +103,19 @@ class Controller extends BlockController
     protected $dontRedirectIPs;
 
     /**
+     * Redirect users using these operating systems.
+     *
+     * @var string
+     */
+    protected $redirectOperatingSystems;
+
+    /**
+     * Don't redirect users using these operating systems.
+     *
+     * @var string
+     */
+    protected $dontRedirectOperatingSystems;
+    /**
      * Redirect users that can edit the page containing the block?
      *
      * @var bool
@@ -156,6 +171,118 @@ class Controller extends BlockController
     public function getBlockTypeDescription()
     {
         return t('Redirect specific users to another page.');
+    }
+
+    public function add()
+    {
+        $this->addOrEdit();
+    }
+
+    public function edit()
+    {
+        $this->addOrEdit();
+    }
+
+    /**
+     * Validate the data set by user when adding/editing a block.
+     *
+     * @param mixed $data
+     *
+     * @return \Concrete\Core\Error\ErrorList\ErrorList|null
+     */
+    public function validate($data)
+    {
+        $normalized = $this->normalize($data);
+
+        return is_array($normalized) ? null : $normalized;
+    }
+
+    /**
+     * Save the data set by user when adding/editing a block.
+     *
+     * @param mixed $data
+     *
+     * @throws Exception
+     */
+    public function save($data)
+    {
+        $normalized = $this->normalize($data);
+        if (!is_array($normalized)) {
+            throw new Exception(implode("\n", $normalized->getList()));
+        }
+        parent::save($normalized);
+    }
+
+    public function on_start()
+    {
+        $user = $this->getCurrentUser();
+        // Never redirect the administrator
+        if ($user !== null && $user->isSuperUser()) {
+            return;
+        }
+        $c = $this->getCurrentPage();
+        if ($c !== null) {
+            // Never redirect if the page is in edit mode
+            if ($c->isEditMode()) {
+                return;
+            }
+            // Don't redirect users that can edit the page
+            if (!$this->redirectEditors && $this->userCanEditCurrentPage()) {
+                return;
+            }
+        }
+        // Never redirect visitors from specific IP addresses
+        if ($this->dontRedirectIPs !== '' && $this->isUserIpInList($this->dontRedirectIPs)) {
+            return;
+        }
+        // Never redirect users belonging to specific groups
+        if ($this->dontRedirectGroupIDs !== '' && array_intersect(explode(',', $this->dontRedirectGroupIDs), $this->getCurrentUserGroups())) {
+            return;
+        }
+        if ($this->redirectIPs !== '' && $this->isUserIpInList($this->redirectIPs)) {
+            $redirect = true;
+        } elseif ($this->redirectGroupIDs !== '' && array_intersect(explode(',', $this->redirectGroupIDs), $this->getCurrentUserGroups())) {
+            $redirect = true;
+        } elseif ($this->redirectOperatingSystems !== '' && in_array($this->getCurrentUserOS(), explode('|', $this->dontRedirectOperatingSystems))) {
+            $redirect = true;
+        } else {
+            $redirect = false;
+        }
+
+        if ($redirect) {
+            $this->performRedirect();
+        }
+    }
+
+    public function view()
+    {
+        $c = $this->getCurrentPage();
+        if ($c !== null && $c->isEditMode()) {
+            $this->set('output', '<div class="ccm-edit-mode-disabled-item"><div style="padding: 10px 5px">' . t('Redirect block') . '</div></div>');
+        } else {
+            $showMessage = false;
+            switch ($this->showMessage) {
+                case self::SHOWMESSAGE_ALWAYS:
+                    $showMessage = true;
+                    break;
+                case self::SHOWMESSAGE_EDITORS:
+                    if ($this->userCanEditCurrentPage()) {
+                        $showMessage = true;
+                    }
+                    break;
+            }
+            if ($showMessage) {
+                if ($this->useCustomMessage) {
+                    $msg = (string) $this->customMessage;
+                    if ($msg !== '') {
+                        $msg = LinkAbstractor::translateFrom($msg);
+                    }
+                } else {
+                    $msg = '<span class="redirect-block-message">' . t('This block will redirect selected users.') . '</span>';
+                }
+                $this->set('output', $msg);
+            }
+        }
     }
 
     /**
@@ -237,6 +364,22 @@ class Controller extends BlockController
                     }
                 }
             }
+            $validOperatingSystems = $this->app->make(OSDetector::class)->getOperatingSystemsList();
+            foreach (['redirectOperatingSystems', 'dontRedirectOperatingSystems'] as $f) {
+                $normalized[$f] = [];
+                if (isset($data[$f]) && is_array($data[$f])) {
+                    foreach ($data[$f] as $os) {
+                        $os = is_string($os) ? $os : '';
+                        if ($os !== '' && !in_array($os, $normalized[$f], true)) {
+                            $normalized[$f][] = $os;
+                            if (!in_array($os, $validOperatingSystems, true)) {
+                                $errors->add(t('Invalid Operating System: %s', $os));
+                            }
+                        }
+                    }
+                }
+                $normalized[$f] = implode('|', $normalized[$f]);
+            }
             $normalized['redirectEditors'] = (isset($data['redirectEditors']) && $data['redirectEditors']) ? 1 : 0;
             $normalized['showMessage'] = (isset($data['showMessage']) && $data['showMessage']) ? (int) $data['showMessage'] : 0;
             switch ($normalized['showMessage']) {
@@ -259,46 +402,13 @@ class Controller extends BlockController
         return $errors->has() ? $errors : $normalized;
     }
 
-    public function add()
-    {
-        $this->addOrEdit();
-    }
-
-    public function edit()
-    {
-        $this->addOrEdit();
-    }
-
     private function addOrEdit()
     {
+        $this->requireAsset('selectize');
         $ip = $this->getCurrentUserIP();
+        $this->set('operatingSystemsList', $this->app->make(OSDetector::class)->getOperatingSystemsList());
         $this->set('myIP', ($ip === null) ? '' : $ip->toString());
-    }
-
-    /**
-     * Validate the data set by user when adding/editing a block.
-     *
-     * @return \Concrete\Core\Error\ErrorList\ErrorList|null
-     */
-    public function validate($data)
-    {
-        $normalized = $this->normalize($data);
-
-        return is_array($normalized) ? null : $normalized;
-    }
-
-    /**
-     * Save the data set by user when adding/editing a block.
-     *
-     * @throws Exception
-     */
-    public function save($data)
-    {
-        $normalized = $this->normalize($data);
-        if (!is_array($normalized)) {
-            throw new Exception(implode("\n", $normalized->getList()));
-        }
-        parent::save($normalized);
+        $this->set('myOS', $this->getCurrentUserOS());
     }
 
     /**
@@ -312,6 +422,7 @@ class Controller extends BlockController
             $c = $this->request->getCurrentPage();
             $this->currentPage = $c && !$c->isError() ? $c : null;
         }
+
         return $this->currentPage;
     }
 
@@ -409,6 +520,19 @@ class Controller extends BlockController
     }
 
     /**
+     * @return string
+     */
+    private function getCurrentUserOS()
+    {
+        static $result;
+        if (!isset($result)) {
+            $result = $this->app->make(OSDetector::class)->detectOS($this->request);
+        }
+
+        return $result;
+    }
+
+    /**
      * @return \IPLib\Address\AddressInterface|null
      */
     private function getCurrentUserIP()
@@ -444,81 +568,5 @@ class Controller extends BlockController
         }
 
         return $result;
-    }
-
-    public function on_start()
-    {
-        $user = $this->getCurrentUser();
-        // Never redirect the administrator
-        if ($user !== null && $user->isSuperUser()) {
-            return;
-        }
-        $c = $this->getCurrentPage();
-        if ($c !== null) {
-            // Never redirect if the page is in edit mode
-            if ($c->isEditMode()) {
-                return;
-            }
-            // Don't redirect users that can edit the page
-            if (!$this->redirectEditors && $this->userCanEditCurrentPage()) {
-                return;
-            }
-        }
-        // Never redirect visitors from specific IP addresses
-        if ($this->dontRedirectIPs && $this->isUserIpInList($this->dontRedirectIPs)) {
-            return;
-        }
-        // Never redirect users belonging to specific groups
-        if ($this->dontRedirectGroupIDs !== '' && array_intersect(explode(',', $this->dontRedirectGroupIDs), $this->getCurrentUserGroups())) {
-            return;
-        }
-        if ($this->redirectIPs || $this->redirectGroupIDs) {
-            $redirect = false;
-            // Redirect visitors from specific IP addresses
-            if ($redirect === false && $this->redirectIPs && $this->isUserIpInList($this->redirectIPs)) {
-                $redirect = true;
-            }
-            // Redirect users belonging to specific groups
-            if ($redirect === false && $this->redirectGroupIDs && array_intersect(explode(',', $this->redirectGroupIDs), $this->getCurrentUserGroups())) {
-                $redirect = true;
-            }
-        } else {
-            $redirect = true;
-        }
-
-        if ($redirect) {
-            $this->performRedirect();
-        }
-    }
-
-    public function view()
-    {
-        $c = $this->getCurrentPage();
-        if ($c !== null && $c->isEditMode()) {
-            $this->set('output', '<div class="ccm-edit-mode-disabled-item"><div style="padding: 10px 5px">' . t('Redirect block') . '</div></div>');
-        } else {
-            $showMessage = false;
-            switch ($this->showMessage) {
-                case self::SHOWMESSAGE_ALWAYS:
-                    $showMessage = true;
-                    break;
-                case self::SHOWMESSAGE_EDITORS:
-                    if ($this->userCanEditCurrentPage()) {
-                        $showMessage = true;
-                    }
-                    break;
-            }
-            if ($showMessage) {
-                if ($this->useCustomMessage) {
-                    $msg = (string) $this->customMessage;
-                    if ($msg !== '') {
-                        $msg = LinkAbstractor::translateFrom($msg);
-                    }
-                } else {
-                    $msg = '<span class="redirect-block-message">' . t('This block will redirect selected users.') . '</span>';
-                }
-                $this->set('output', $msg);
-            }
-        }
     }
 }

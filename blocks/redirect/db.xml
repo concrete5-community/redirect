@@ -29,6 +29,12 @@
     <field name="dontRedirectIPs" type="text" comment="Don't redirect users from these IP addresses">
       <notnull/>
     </field>
+    <field name="redirectOperatingSystems" type="text" comment="Redirect users using specified Operating Systems">
+      <notnull/>
+    </field>
+    <field name="dontRedirectOperatingSystems" type="text" comment="Don't redirect users using specified Operating Systems">
+      <notnull/>
+    </field>
     <field name="redirectEditors" type="boolean" comment="Redirect users that can edit the page containing the block?">
       <notnull/>
     </field>

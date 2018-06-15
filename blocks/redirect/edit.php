@@ -12,18 +12,23 @@ use Concrete\Core\Editor\LinkAbstractor;
 /* @var string|null $dontRedirectGroupIDs */
 /* @var string|null $redirectIPs */
 /* @var string|null $dontRedirectIPs */
-/* @var string $myIP */
+/* @var string|null $redirectOperatingSystems */
+/* @var string|null $dontRedirectOperatingSystems */
 /* @var int|null $redirectEditors */
 /* @var int|null $showMessage */
 /* @var int|null $useCustomMessage */
 /* @var string|null $customMessage */
+/* @var string[] $operatingSystemsList */
+/* @var string $myIP */
+/* @var string $myOS */
 
 defined('C5_EXECUTE') or die('Access denied.');
 
 echo Core::make('helper/concrete/ui')->tabs([
-    ['redirect-to', t('Destination page'), true],
-    ['redirect-by-usergroup', t('Redirect by user groups')],
-    ['redirect-by-ip', t('Redirect by IP address')],
+    ['redirect-to', t('Destination'), true],
+    ['redirect-by-usergroup', t('User Groups')],
+    ['redirect-by-ip', t('IP Addresses')],
+    ['redirect-by-os', t('Operating Systems')],
     ['redirect-options', t('Options')],
 ]);
 
@@ -184,6 +189,34 @@ echo Core::make('helper/concrete/ui')->tabs([
     ?>
 </div>
 
+<div class="ccm-tab-content" id="ccm-tab-content-redirect-by-os">
+    <?php
+    foreach ([
+        ['redirectOperatingSystems', t('Redirect these Operating Systems')],
+        ['dontRedirectOperatingSystems', t('Never redirect these Operating Systems')],
+    ] as $info) {
+        $varName = $info[0];
+        $values = isset($$varName) ? preg_split('/\|+/', $$varName, -1, PREG_SPLIT_NO_EMPTY) : []; ?>
+        <div class="form-group">
+            <?= $form->label(
+                $varName,
+                $info[1]
+            ) ?>
+            <?= $form->selectMultiple($varName, array_combine($operatingSystemsList, $operatingSystemsList), $values) ?>
+        </div>
+        <?php
+    }
+    if ($myOS !== '') {
+        ?><div class="text-muted"><?= t('Your Operating System is %s', "<code>$myOS</code>") ?></div><?php
+    }
+    ?>
+	<script>
+	$('#redirectOperatingSystems,#dontRedirectOperatingSystems').selectize({
+        plugins: ['remove_button']
+	});
+	</script>
+</div>
+
 <div class="ccm-tab-content" id="ccm-tab-content-redirect-options">
 	<div class="form-group">
 		<div class="checkbox">
@@ -220,7 +253,6 @@ echo Core::make('helper/concrete/ui')->tabs([
 		<?= $form->label('customMessage', t('Custom message')) ?>
         <?= Core::make('editor')->outputBlockEditModeEditor('customMessage', isset($customMessage) ? LinkAbstractor::translateFromEditMode($customMessage) : '') ?>
     </div>
-
 	<script>
 	$(document).ready(function() {
 		$('#ccm-tab-content-redirect-options .redactor-editor').css({'min-height': '0px', height: '100px'});
