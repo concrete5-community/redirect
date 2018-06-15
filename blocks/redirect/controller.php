@@ -129,6 +129,16 @@ class Controller extends BlockController
     protected $customMessage;
 
     /**
+     * @var \Concrete\Core\Page\Page|null|false
+     */
+    private $currentPage = false;
+
+    /**
+     * @var bool|null
+     */
+    private $userCanEditCurrentPage = null;
+
+    /**
      * {@inheritdoc}
      *
      * @see BlockController::getBlockTypeName()
@@ -298,16 +308,11 @@ class Controller extends BlockController
      */
     private function getCurrentPage()
     {
-        static $result;
-        if (!isset($result)) {
-            $result = false;
+        if ($this->currentPage === false) {
             $c = $this->request->getCurrentPage();
-            if (is_object($c) && !$c->isError()) {
-                $result = $c;
-            }
+            $this->currentPage = $c && !$c->isError() ? $c : null;
         }
-
-        return ($result === false) ? null : $result;
+        return $this->currentPage;
     }
 
     /**
@@ -363,21 +368,24 @@ class Controller extends BlockController
      *
      * @return bool
      */
-    private function userCanEdit(Page $c)
+    private function userCanEditCurrentPage()
     {
-        static $canEdit;
-        if (!isset($canEdit)) {
-            $canEdit = false;
+        if ($this->userCanEditCurrentPage === null) {
+            $userCanEditCurrentPage = false;
             $me = $this->getCurrentUser();
             if ($me !== null) {
-                $cp = new Checker($c);
-                if ($cp->canEditPageContents()) {
-                    $canEdit = true;
+                $p = $this->getCurrentPage();
+                if ($p !== null) {
+                    $cp = new Checker($p);
+                    if ($cp->canEditPageContents()) {
+                        $userCanEditCurrentPage = true;
+                    }
                 }
             }
+            $this->userCanEditCurrentPage = $userCanEditCurrentPage;
         }
 
-        return $canEdit;
+        return $this->userCanEditCurrentPage;
     }
 
     private function performRedirect()
@@ -452,7 +460,7 @@ class Controller extends BlockController
                 return;
             }
             // Don't redirect users that can edit the page
-            if (!$this->redirectEditors && $this->userCanEdit($c)) {
+            if (!$this->redirectEditors && $this->userCanEditCurrentPage()) {
                 return;
             }
         }
@@ -464,13 +472,17 @@ class Controller extends BlockController
         if ($this->dontRedirectGroupIDs !== '' && array_intersect(explode(',', $this->dontRedirectGroupIDs), $this->getCurrentUserGroups())) {
             return;
         }
-        $redirect = false;
-        // Redirect visitors from specific IP addresses
-        if ($redirect === false && $this->redirectIPs && $this->isUserIpInList($this->redirectIPs)) {
-            $redirect = true;
-        }
-        // Redirect users belonging to specific groups
-        if ($redirect === false && $this->redirectGroupIDs !== '' && array_intersect(explode(',', $this->redirectGroupIDs), $this->getCurrentUserGroups())) {
+        if ($this->redirectIPs || $this->redirectGroupIDs) {
+            $redirect = false;
+            // Redirect visitors from specific IP addresses
+            if ($redirect === false && $this->redirectIPs && $this->isUserIpInList($this->redirectIPs)) {
+                $redirect = true;
+            }
+            // Redirect users belonging to specific groups
+            if ($redirect === false && $this->redirectGroupIDs && array_intersect(explode(',', $this->redirectGroupIDs), $this->getCurrentUserGroups())) {
+                $redirect = true;
+            }
+        } else {
             $redirect = true;
         }
 
@@ -491,7 +503,7 @@ class Controller extends BlockController
                     $showMessage = true;
                     break;
                 case self::SHOWMESSAGE_EDITORS:
-                    if ($c !== null && $this->userCanEdit($c)) {
+                    if ($this->userCanEditCurrentPage()) {
                         $showMessage = true;
                     }
                     break;
