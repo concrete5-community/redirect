@@ -21,7 +21,7 @@ class Controller extends Package
      *
      * @var string
      */
-    protected $pkgVersion = '2.0.0';
+    protected $pkgVersion = '2.0.1';
 
     /**
      * The minimum concrete5 version.
