@@ -6,6 +6,7 @@ use Concrete\Core\Block\BlockController;
 use Concrete\Core\Editor\LinkAbstractor;
 use Concrete\Core\Http\Response;
 use Concrete\Core\Http\ResponseFactoryInterface;
+use Concrete\Core\Localization\Localization;
 use Concrete\Core\Page\Page;
 use Concrete\Core\Permission\Checker;
 use Exception;
@@ -278,7 +279,13 @@ class Controller extends BlockController
                         $msg = LinkAbstractor::translateFrom($msg);
                     }
                 } else {
-                    $msg = '<span class="redirect-block-message">' . t('This block will redirect selected users.') . '</span>';
+                    $loc = Localization::getInstance();
+                    $loc->pushActiveContext(Localization::CONTEXT_UI);
+                    try {
+                        $msg = '<span class="redirect-block-message">' . t('This block will redirect selected users.') . '</span>';
+                    } finally {
+                        $loc->popActiveContext();
+                    }
                 }
                 $this->set('output', $msg);
             }
