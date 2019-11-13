@@ -6,6 +6,8 @@ use Concrete\Core\Editor\LinkAbstractor;
 /* @var Concrete\Core\Block\View\BlockView $this */
 /* @var Concrete\Core\Block\View\BlockView $view */
 
+/* @var int $redirectCode */
+/* @var array $redirectCodes */
 /* @var int|null $redirectToCID */
 /* @var string|null $redirectToURL */
 /* @var string|null $redirectGroupIDs */
@@ -218,17 +220,50 @@ echo Core::make('helper/concrete/ui')->tabs([
 </div>
 
 <div class="ccm-tab-content" id="ccm-tab-content-redirect-options">
+    <?php
+    $redirectCodeOptions = [];
+    $redirectCodeMessages = [];
+    foreach ($redirectCodes as $redirectCodesID => $redirectCodesData) {
+        $redirectCodeOptions[$redirectCodesID] = $redirectCodesData[0];
+        $redirectCodeMessages[$redirectCodesID] = $redirectCodesData[1];
+    }
+    ?>
 	<div class="form-group">
-		<div class="checkbox">
-			<label>
-				<?= $form->checkbox('redirectEditors', '1', isset($redirectEditors) ? $redirectEditors : '0') ?>
-				<?= t('Redirect users with permission to edit the page contents') ?>
-			</label>
-		</div>
-	</div>
-	<div class="form-group">
-		<?= $form->label('showMessage', t('Show block message')) ?>
+		<?= $form->label('redirectCode', t('Redirect type')) ?>
 		<?= $form->select(
+            'redirectCode',
+		    $redirectCodeOptions,
+		    $redirectCode,
+		    [
+		        'required' => 'required',
+		    ]
+        ) ?>
+        <div id="redirectCodeMessage" class="text-muted small">&nbsp;</div>
+        <script>
+        $(document).ready(function() {
+            var redirectCodeMessages = <?= json_encode($redirectCodeMessages) ?>,
+                $redirectCode = $('#redirectCode'),
+                $redirectCodeMessage = $('#redirectCodeMessage');
+            $redirectCode
+                .on('change', function() {
+                    var redirectCode = parseInt($redirectCode.val());
+                    if (redirectCode) {
+                    	$redirectCodeMessage
+                            .html('<code>' + redirectCode + '</code>&nbsp')
+                            .append($('<span />').text(redirectCodeMessages[redirectCode]))
+                        ;
+                    } else {
+                    	$redirectCodeMessage.html('&nbsp;');
+                    }
+                })
+                .trigger('change')
+            ;
+        });
+        </script>
+	</div>
+    <div class="form-group">
+        <?= $form->label('showMessage', t('Show block message')) ?>
+        <?= $form->select(
             'showMessage',
             [
                 $controller::SHOWMESSAGE_NEVER => t('Never'),
@@ -237,11 +272,18 @@ echo Core::make('helper/concrete/ui')->tabs([
             ],
             isset($showMessage) ? $showMessage : $controller::SHOWMESSAGE_EDITORS
         ) ?>
-	</div>
+    </div>
 	<?php
     $useCustomMessage = isset($useCustomMessage) ? (bool) $useCustomMessage : false;
     ?>
-	<div class="form-group">
+    <div class="form-group">
+        <?= $form->label('showMessage', t('Other options')) ?>
+        <div class="checkbox">
+            <label>
+                <?= $form->checkbox('redirectEditors', '1', isset($redirectEditors) ? $redirectEditors : '0') ?>
+                <?= t('Redirect users with permission to edit the page contents') ?>
+            </label>
+        </div>
 		<div class="checkbox">
 			<label>
 				<?= $form->checkbox('useCustomMessage', '1', $useCustomMessage) ?>

@@ -62,6 +62,13 @@ class Controller extends BlockController
     protected $btInterfaceHeight = 460;
 
     /**
+     * HTTP redirect code.
+     *
+     * @var int|null
+     */
+    protected $redirectCode;
+
+    /**
      * Destination page: collection ID.
      *
      * @var int
@@ -388,6 +395,11 @@ class Controller extends BlockController
                 $normalized[$f] = implode('|', $normalized[$f]);
             }
             $normalized['redirectEditors'] = (isset($data['redirectEditors']) && $data['redirectEditors']) ? 1 : 0;
+            $normalized['redirectCode'] = empty($data['redirectCode']) ? 0 : (int) $data['redirectCode'];
+            $redirectCodes = $this->getRedirectCodes();
+            if (!isset($redirectCodes[$normalized['redirectCode']])) {
+                $errors->add(t('Please specify the redirect type'));
+            }
             $normalized['showMessage'] = (isset($data['showMessage']) && $data['showMessage']) ? (int) $data['showMessage'] : 0;
             switch ($normalized['showMessage']) {
                 case self::SHOWMESSAGE_NEVER:
@@ -413,6 +425,8 @@ class Controller extends BlockController
     {
         $this->requireAsset('selectize');
         $ip = $this->getCurrentUserIP();
+        $this->set('redirectCode', $this->getRedirectCode());
+        $this->set('redirectCodes', $this->getRedirectCodes());
         $this->set('operatingSystemsList', $this->app->make(OSDetector::class)->getOperatingSystemsList());
         $this->set('myIP', ($ip === null) ? '' : $ip->toString());
         $this->set('myOS', $this->getCurrentUserOS());
@@ -520,7 +534,7 @@ class Controller extends BlockController
 
         if ($destinationURL !== null) {
             $rf = $this->app->make(ResponseFactoryInterface::class);
-            $response = $rf->redirect($destinationURL, Response::HTTP_TEMPORARY_REDIRECT);
+            $response = $rf->redirect($destinationURL, $this->getRedirectCode());
             $response->send();
             exit();
         }
@@ -575,5 +589,54 @@ class Controller extends BlockController
         }
 
         return $result;
+    }
+
+    /**
+     * @return int
+     */
+    private function getRedirectCode()
+    {
+        $redirectCode = (int) $this->redirectCode;
+
+        return $redirectCode ?: Response::HTTP_TEMPORARY_REDIRECT;
+    }
+
+    /**
+     * @return array
+     */
+    private function getRedirectCodes()
+    {
+        return [
+            // 300
+            Response::HTTP_MULTIPLE_CHOICES => [
+                t('Multiple Choices'),
+                t('For example when offering different languages'),
+            ],
+            // 301
+            Response::HTTP_MOVED_PERMANENTLY => [
+                t('Moved Permanently'),
+                t('Redirect permanently from one URL to another passing link equity to the redirected page'),
+            ],
+            // 302
+            Response::HTTP_FOUND => [
+                t('Found'),
+                t('Originally named "temporary redirect" in HTTP/1.0, superseded by 303 and 307 in HTTP/1.1'),
+            ],
+            // 303
+            Response::HTTP_SEE_OTHER => [
+                t('See Other'),
+                t('Force a GET request to the new URL even if original request was POST'),
+            ],
+            // 307
+            Response::HTTP_TEMPORARY_REDIRECT => [
+                t('Temporary Redirect'),
+                t('Provide a new URL for the browser to resubmit a GET or POST request'),
+            ],
+            // 308
+            Response::HTTP_PERMANENTLY_REDIRECT => [
+                t('Permanent Redirect'),
+                t('Provide a new URL for the browser to resubmit a GET or POST request'),
+            ],
+        ];
     }
 }

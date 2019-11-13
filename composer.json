@@ -1,39 +1,49 @@
 {
-	"name" : "mlocati-concrete5-packages/redirect",
-	"description" : "This concrete5 addon installs a block type that when added to a page allows you to redirect visitors to this page to another page that you specify or an external URL.",
-	"type" : "concrete5-package",
-	"keywords" : [
-		"concrete5",
-		"addon",
-		"add-on",
-		"extension",
-		"redirect",
-		"block",
-		"user",
-		"users",
-		"visitors",
-		"browse",
-		"ip",
-		"range",
-		"os",
-		"operating system",
-		"group",
-		"groups"
-	],
-	"homepage" : "https://www.concrete5.org/marketplace/addons/redirect/",
-	"license" : "MIT",
-	"authors" : [{
-			"name" : "Michele Locati",
-			"email" : "michele@locati.it",
-			"homepage" : "https://mlocati.github.io/",
-			"role" : "Author"
-		}
-	],
-	"support" : {
-		"issues" : "https://github.com/mlocati/concrete5_addon_redirect/issues",
-		"source" : "https://github.com/mlocati/concrete5_addon_redirect"
-	},
-	"require" : {
-		"piwik/device-detector" : "^3.10"
-	}
+    "name": "mlocati-concrete5-packages/redirect",
+    "description": "This concrete5 addon installs a block type that when added to a page allows you to redirect visitors to this page to another page that you specify or an external URL.",
+    "type": "concrete5-package",
+    "keywords": [
+        "concrete5",
+        "addon",
+        "add-on",
+        "extension",
+        "redirect",
+        "block",
+        "user",
+        "users",
+        "visitors",
+        "browse",
+        "ip",
+        "range",
+        "os",
+        "operating system",
+        "group",
+        "groups"
+    ],
+    "homepage": "https://www.concrete5.org/marketplace/addons/redirect/",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Michele Locati",
+            "email": "michele@locati.it",
+            "homepage": "https://mlocati.github.io/",
+            "role": "Author"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/mlocati/concrete5_addon_redirect/issues",
+        "source": "https://github.com/mlocati/concrete5_addon_redirect"
+    },
+    "require": {
+        "concrete5/core": ">=8.2.0",
+        "piwik/device-detector": "^3.10"
+    },
+    "config": {
+        "preferred-install": "dist",
+        "platform": {
+            "php": "5.5.9"
+        },
+        "classmap-authoritative#": true,
+        "sort-packages": true
+    }
 }

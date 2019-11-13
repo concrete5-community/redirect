@@ -10,6 +10,9 @@
       <unsigned/>
       <key/>
     </field>
+    <field name="redirectCode" type="integer" comment="HTTP redirect code">
+      <unsigned/>
+    </field>
     <field name="redirectToCID" type="integer" comment="Destination page: collection ID">
       <unsigned/>
       <notnull/>
