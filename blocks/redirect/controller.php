@@ -13,10 +13,12 @@ use Concrete\Core\Permission\Checker;
 use Exception;
 use Group;
 use IPLib\Factory as IPFactory;
+use League\Url\Url;
 use MLRedirect\OSDetector;
 use Punic\Language;
 use Punic\Misc;
 use Punic\Territory;
+use RuntimeException;
 use User;
 
 defined('C5_EXECUTE') or die('Access denied.');
@@ -68,14 +70,14 @@ class Controller extends BlockController
     /**
      * HTTP redirect code.
      *
-     * @var int|null
+     * @var int|string|null
      */
     protected $redirectCode;
 
     /**
      * Destination page: collection ID.
      *
-     * @var int
+     * @var int|string
      */
     protected $redirectToCID;
 
@@ -138,21 +140,28 @@ class Controller extends BlockController
     /**
      * Redirect users that can edit the page containing the block?
      *
-     * @var bool
+     * @var bool|string
      */
     protected $redirectEditors;
 
     /**
+     * Redirect users that can edit the page containing the block?
+     *
+     * @var bool|string
+     */
+    protected $keepQuerystring;
+
+    /**
      * Show a message block when the block does not redirect?
      *
-     * @var int
+     * @var int|string
      */
     protected $showMessage;
 
     /**
      * Use a custom message?
      *
-     * @var bool
+     * @var bool|string
      */
     protected $useCustomMessage;
 
@@ -280,9 +289,16 @@ class Controller extends BlockController
             $redirect = false;
         }
 
-        if ($redirect) {
-            $this->performRedirect();
+        if (!$redirect) {
+            return;
         }
+        $response = $this->createRedirectResponse();
+        if ($response === null) {
+            return;
+        }
+        $response->prepare($this->request);
+        $response->send();
+        exit(0);
     }
 
     public function view()
@@ -421,6 +437,7 @@ class Controller extends BlockController
                 $normalized[$f] = $this->normalizeLocales($prefix, $data, $errors);
             }
             $normalized['redirectEditors'] = (isset($data['redirectEditors']) && $data['redirectEditors']) ? 1 : 0;
+            $normalized['keepQuerystring'] = (isset($data['keepQuerystring']) && $data['keepQuerystring']) ? 1 : 0;
             $normalized['redirectCode'] = empty($data['redirectCode']) ? 0 : (int) $data['redirectCode'];
             $redirectCodes = $this->getRedirectCodes();
             if (!isset($redirectCodes[$normalized['redirectCode']])) {
@@ -549,24 +566,31 @@ class Controller extends BlockController
         return $this->userCanEditCurrentPage;
     }
 
-    private function performRedirect()
+    /**
+     * @return \Symfony\Component\HttpFoundation\Response|null
+     */
+    private function createRedirectResponse()
     {
-        $destinationURL = null;
         if ($this->redirectToCID) {
             $to = Page::getByID($this->redirectToCID);
             if (is_object($to) && (!$to->isError())) {
                 $destinationURL = (string) $this->app->make('url/manager')->resolve([$to]);
+            } else {
+                $destinationURL = '';
             }
-        } elseif (is_string($this->redirectToURL) && $this->redirectToURL !== '') {
-            $destinationURL = $this->redirectToURL;
+        } else {
+            $destinationURL = (string) $this->redirectToURL;
         }
 
-        if ($destinationURL !== null) {
-            $rf = $this->app->make(ResponseFactoryInterface::class);
-            $response = $rf->redirect($destinationURL, $this->getRedirectCode());
-            $response->send();
-            exit();
+        if ($destinationURL === '') {
+            return null;
         }
+        if ($this->keepQuerystring) {
+            $destinationURL = $this->copyQuerystring($destinationURL);
+        }
+        $rf = $this->app->make(ResponseFactoryInterface::class);
+
+        return $rf->redirect($destinationURL, $this->getRedirectCode());
     }
 
     /**
@@ -782,5 +806,32 @@ class Controller extends BlockController
         }
 
         return implode('|', $locales);
+    }
+
+    /**
+     * @param string $url
+     *
+     * @return string
+     */
+    private function copyQuerystring($url)
+    {
+        $qs = $this->request->query->all();
+        if (!is_array($qs)) {
+            return $url;
+        }
+        unset($qs['cID']);
+        $token = $this->app->make('token');
+        unset($qs[$token::DEFAULT_TOKEN_NAME]);
+        if ($qs === []) {
+            return $url;
+        }
+        try {
+            $obj = Url::createFromUrl($url);
+        } catch (RuntimeException $x) {
+            return $url;
+        }
+        $obj->getQuery()->modify($qs);
+
+        return (string) $obj;
     }
 }

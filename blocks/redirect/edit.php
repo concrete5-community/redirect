@@ -17,7 +17,8 @@ use Concrete\Core\Editor\LinkAbstractor;
  * @var string|null $redirectOperatingSystems
  * @var string|null $dontRedirectOperatingSystems
  * @var string|null $redirectLocales
- * @var int|null $redirectEditors
+ * @var bool|string|null $redirectEditors
+ * @var bool|string|null $keepQuerystring
  * @var int|null $showMessage
  * @var int|null $useCustomMessage
  * @var string|null $customMessage
@@ -104,63 +105,63 @@ echo Core::make('helper/concrete/ui')->tabs([
                 data-button="assign-groups"
                 dialog-width="640"
                 dialog-height="480"
-            	dialog-title="<?= t('Select group') ?>"
-				dialog-modal="true"
-				dialog-on-open="<?= h('window.redirectBlockCurrentRedirectGroup = ' . json_encode($varName)) ?>"
-				dialog-on-close="window.redirectBlockCurrentRedirectGroup = null"
-				href="<?= URL::to('/ccm/system/dialogs/group/search') ?>"
-			><?= t('Select group') ?></a>
+                dialog-title="<?= t('Select group') ?>"
+                dialog-modal="true"
+                dialog-on-open="<?= h('window.redirectBlockCurrentRedirectGroup = ' . json_encode($varName)) ?>"
+                dialog-on-close="window.redirectBlockCurrentRedirectGroup = null"
+                href="<?= URL::to('/ccm/system/dialogs/group/search') ?>"
+            ><?= t('Select group') ?></a>
             <?= $form->label('', $info[1]) ?>
-	    	<div class="redirect-group-list"></div>
-	    	<?= $form->hidden($varName, '') ?>
-	    </div>
-	    <?php
+            <div class="redirect-group-list"></div>
+            <?= $form->hidden($varName, '') ?>
+        </div>
+        <?php
     }
     ?>
-	<script>
-	window.redirectBlockCurrentRedirectGroup = null;
-	$(document).ready(function() {
-		function addGroup(category, id, name, initializing) {
-			var $value = $('#' + category), $parent = $value.closest('.form-group'), cls = initializing ? 'row' : 'row animated bounceIn', $container;
-			$value.val(($value.val() === '') ? ('|' + id + '|') : ($value.val() + id + '|'));
-			$parent.find('div.redirect-group-list').append($container = $('<div class="' + cls + '" />')
-				.attr('data-group-id', id)
-				.append($('<div class="col-md-12" />')
-					.append($('<p />')
-						.text(' ' + name)
-						.prepend($('<a href="#"><i class="fa fa-trash-o"></i></a>')
-							.on('click', function(e) {
-								e.preventDefault();
-								var v = $value.val(), rm = '|' + id + '|';
-								if (v === rm) {
-									$value.val('');
-								} else {
-									$value.val(v.replace(rm, '|').replace(/\|\|/g, '|'));
-								}
-								$container.hide('fast', function() {$container.remove();});
-							})
-						)
-					)
-				)
-			);
-		}
-		<?php
+    <script>
+    window.redirectBlockCurrentRedirectGroup = null;
+    $(document).ready(function() {
+        function addGroup(category, id, name, initializing) {
+            var $value = $('#' + category), $parent = $value.closest('.form-group'), cls = initializing ? 'row' : 'row animated bounceIn', $container;
+            $value.val(($value.val() === '') ? ('|' + id + '|') : ($value.val() + id + '|'));
+            $parent.find('div.redirect-group-list').append($container = $('<div class="' + cls + '" />')
+                .attr('data-group-id', id)
+                .append($('<div class="col-md-12" />')
+                    .append($('<p />')
+                        .text(' ' + name)
+                        .prepend($('<a href="#"><i class="fa fa-trash-o"></i></a>')
+                            .on('click', function(e) {
+                                e.preventDefault();
+                                var v = $value.val(), rm = '|' + id + '|';
+                                if (v === rm) {
+                                    $value.val('');
+                                } else {
+                                    $value.val(v.replace(rm, '|').replace(/\|\|/g, '|'));
+                                }
+                                $container.hide('fast', function() {$container.remove();});
+                            })
+                        )
+                    )
+                )
+            );
+        }
+        <?php
         foreach ($groups as $groupsCategory => $groupsList) {
             foreach ($groupsList as $gID => $gName) {
                 ?>addGroup(<?= json_encode($groupsCategory) ?>, <?= $gID ?>, <?= json_encode($gName) ?>, true);<?php
             }
         }
         ?>
-		ConcreteEvent.subscribe('SelectGroup', function(e, data) {
-			if (window.redirectBlockCurrentRedirectGroup === null) {
-				return;
-			}
-			addGroup(window.redirectBlockCurrentRedirectGroup, data.gID, data.gName);
-			jQuery.fn.dialog.closeTop();
-	    });
-		$('#ccm-tab-content-redirect-by-usergroup a[data-button=assign-groups]').dialog();
-	});
-	</script>
+        ConcreteEvent.subscribe('SelectGroup', function(e, data) {
+            if (window.redirectBlockCurrentRedirectGroup === null) {
+                return;
+            }
+            addGroup(window.redirectBlockCurrentRedirectGroup, data.gID, data.gName);
+            jQuery.fn.dialog.closeTop();
+        });
+        $('#ccm-tab-content-redirect-by-usergroup a[data-button=assign-groups]').dialog();
+    });
+    </script>
 </div>
 
 
@@ -397,6 +398,12 @@ echo Core::make('helper/concrete/ui')->tabs([
             <label>
                 <?= $form->checkbox('redirectEditors', '1', isset($redirectEditors) ? $redirectEditors : '0') ?>
                 <?= t('Redirect users with permission to edit the page contents') ?>
+            </label>
+        </div>
+        <div class="checkbox">
+            <label>
+                <?= $form->checkbox('keepQuerystring', '1', isset($keepQuerystring) ? $keepQuerystring : '0') ?>
+                <?= t('Keep querystring parameters when redirecting users') ?>
             </label>
         </div>
         <div class="checkbox">

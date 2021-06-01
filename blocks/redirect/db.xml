@@ -44,6 +44,9 @@
     <field name="redirectEditors" type="boolean" comment="Redirect users that can edit the page containing the block?">
       <notnull/>
     </field>
+    <field name="keepQuerystring" type="boolean" comment="Keep querystring parameters when redirecting users?">
+      <notnull/>
+    </field>
     <field name="showMessage" type="smallint" comment="Show a message block when the block does not redirect?">
       <unsigned/>
       <notnull/>
