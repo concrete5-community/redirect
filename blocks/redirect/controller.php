@@ -307,10 +307,16 @@ class Controller extends BlockController
         if ($c !== null && $c->isEditMode()) {
             $output = '<div class="ccm-edit-mode-disabled-item"><div style="padding: 10px 5px">';
             $destinationUrl = $this->buildDestinationUrl(false);
-            if ($destinationUrl === '') {
-                $output .= t('This block will redirect selected users.');
-            } else {
-                $output .= t('This block redirects selected users to %s', sprintf('<a href="%1$s">%1$s</a>', h($destinationUrl)));
+            $loc = Localization::getInstance();
+            $loc->pushActiveContext(Localization::CONTEXT_UI);
+            try {
+                if ($destinationUrl === '') {
+                    $output .= t('This block will redirect selected users.');
+                } else {
+                    $output .= t('This block redirects selected users to %s', sprintf('<a href="%1$s">%1$s</a>', h($destinationUrl)));
+                }
+            } finally {
+                $loc->popActiveContext();
             }
             $output .= '</div></div>';
             $this->set('output', $output);
