@@ -305,36 +305,51 @@ class Controller extends BlockController
     {
         $c = $this->getCurrentPage();
         if ($c !== null && $c->isEditMode()) {
-            $this->set('output', '<div class="ccm-edit-mode-disabled-item"><div style="padding: 10px 5px">' . t('Redirect block') . '</div></div>');
-        } else {
-            $showMessage = false;
-            switch ($this->showMessage) {
-                case self::SHOWMESSAGE_ALWAYS:
-                    $showMessage = true;
-                    break;
-                case self::SHOWMESSAGE_EDITORS:
-                    if ($this->userCanEditCurrentPage()) {
-                        $showMessage = true;
-                    }
-                    break;
+            $output = '<div class="ccm-edit-mode-disabled-item"><div style="padding: 10px 5px">';
+            $destinationUrl = $this->buildDestinationUrl(false);
+            if ($destinationUrl === '') {
+                $output .= t('This block will redirect selected users.');
+            } else {
+                $output .= t('This block redirects selected users to %s', sprintf('<a href="%1$s">%1$s</a>', h($destinationUrl)));
             }
-            if ($showMessage) {
-                if ($this->useCustomMessage) {
-                    $msg = (string) $this->customMessage;
-                    if ($msg !== '') {
-                        $msg = LinkAbstractor::translateFrom($msg);
-                    }
-                } else {
-                    $loc = Localization::getInstance();
-                    $loc->pushActiveContext(Localization::CONTEXT_UI);
-                    try {
-                        $msg = '<span class="redirect-block-message">' . t('This block will redirect selected users.') . '</span>';
-                    } finally {
-                        $loc->popActiveContext();
-                    }
+            $output .= '</div></div>';
+            $this->set('output', $output);
+            return;
+        }
+        $showMessage = false;
+        switch ($this->showMessage) {
+            case self::SHOWMESSAGE_ALWAYS:
+                $showMessage = true;
+                break;
+            case self::SHOWMESSAGE_EDITORS:
+            if ($this->userCanEditCurrentPage()) {
+                $showMessage = true;
+            }
+            break;
+        }
+        if ($showMessage) {
+            if ($this->useCustomMessage) {
+                $output = (string) $this->customMessage;
+                if ($output !== '') {
+                    $output = LinkAbstractor::translateFrom($output);
                 }
-                $this->set('output', $msg);
+            } else {
+                $output = '<span class="redirect-block-message">';
+                $destinationUrl = $this->buildDestinationUrl(false);
+                $loc = Localization::getInstance();
+                $loc->pushActiveContext(Localization::CONTEXT_UI);
+                try {
+                    if ($destinationUrl === '') {
+                        $output .= t('This block will redirect selected users.');
+                    } else {
+                        $output = t('This block redirects selected users to %s', sprintf('<a href="%1$s">%1$s</a>', h($destinationUrl)));
+                    }
+                } finally {
+                    $loc->popActiveContext();
+                }
+                $output .= '</span>';
             }
+            $this->set('output', $output);
         }
     }
 
@@ -567,30 +582,40 @@ class Controller extends BlockController
     }
 
     /**
+     * @param bool $keepQuerystring
+     *
+     * @return string
+     */
+    private function buildDestinationUrl($keepQuerystring)
+    {
+        if ($this->redirectToCID) {
+            $to = Page::getByID($this->redirectToCID);
+            if (is_object($to) && !$to->isError()) {
+                $destinationUrl = (string) $this->app->make('url/manager')->resolve([$to]);
+            } else {
+                $destinationUrl = '';
+            }
+        } else {
+            $destinationUrl = (string) $this->redirectToURL;
+        }
+        if ($destinationUrl !== '' && $keepQuerystring) {
+            $destinationUrl = $this->copyQuerystring($destinationUrl);
+        }
+        return $destinationUrl;
+    }
+
+    /**
      * @return \Symfony\Component\HttpFoundation\Response|null
      */
     private function createRedirectResponse()
     {
-        if ($this->redirectToCID) {
-            $to = Page::getByID($this->redirectToCID);
-            if (is_object($to) && (!$to->isError())) {
-                $destinationURL = (string) $this->app->make('url/manager')->resolve([$to]);
-            } else {
-                $destinationURL = '';
-            }
-        } else {
-            $destinationURL = (string) $this->redirectToURL;
-        }
-
-        if ($destinationURL === '') {
+        $destinationUrl = $this->buildDestinationUrl($this->keepQuerystring);
+        if ($destinationUrl === '') {
             return null;
-        }
-        if ($this->keepQuerystring) {
-            $destinationURL = $this->copyQuerystring($destinationURL);
         }
         $rf = $this->app->make(ResponseFactoryInterface::class);
 
-        return $rf->redirect($destinationURL, $this->getRedirectCode());
+        return $rf->redirect($destinationUrl, $this->getRedirectCode());
     }
 
     /**
