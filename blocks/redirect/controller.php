@@ -4,6 +4,7 @@ namespace Concrete\Package\Redirect\Block\Redirect;
 
 use Concrete\Core\Block\BlockController;
 use Concrete\Core\Editor\LinkAbstractor;
+use Concrete\Core\Error\ErrorList\ErrorList;
 use Concrete\Core\Http\Response;
 use Concrete\Core\Http\ResponseFactoryInterface;
 use Concrete\Core\Localization\Localization;
@@ -13,6 +14,9 @@ use Exception;
 use Group;
 use IPLib\Factory as IPFactory;
 use MLRedirect\OSDetector;
+use Punic\Language;
+use Punic\Misc;
+use Punic\Territory;
 use User;
 
 defined('C5_EXECUTE') or die('Access denied.');
@@ -123,6 +127,14 @@ class Controller extends BlockController
      * @var string
      */
     protected $dontRedirectOperatingSystems;
+
+    /**
+     * Redirect users by browser language.
+     *
+     * @var string
+     */
+    protected $redirectLocales;
+
     /**
      * Redirect users that can edit the page containing the block?
      *
@@ -221,6 +233,11 @@ class Controller extends BlockController
         parent::save($normalized);
     }
 
+    /**
+     * {@inheritdoc}
+     *
+     * @see \Concrete\Core\Controller\AbstractController::on_start()
+     */
     public function on_start()
     {
         $user = $this->getCurrentUser();
@@ -244,14 +261,20 @@ class Controller extends BlockController
             return;
         }
         // Never redirect users belonging to specific groups
-        if ($this->dontRedirectGroupIDs !== '' && array_intersect(explode(',', $this->dontRedirectGroupIDs), $this->getCurrentUserGroups())) {
+        if ($this->dontRedirectGroupIDs !== '' && array_intersect(explode(',', $this->dontRedirectGroupIDs), $this->getCurrentUserGroups()) !== []) {
+            return;
+        }
+        // Never redirect users with specific operating systems
+        if ($this->dontRedirectOperatingSystems !== '' && in_array($this->getCurrentUserOS(), explode('|', $this->dontRedirectOperatingSystems))) {
             return;
         }
         if ($this->redirectIPs !== '' && $this->isUserIpInList($this->redirectIPs)) {
             $redirect = true;
         } elseif ($this->redirectGroupIDs !== '' && array_intersect(explode(',', $this->redirectGroupIDs), $this->getCurrentUserGroups())) {
             $redirect = true;
-        } elseif ($this->redirectOperatingSystems !== '' && in_array($this->getCurrentUserOS(), explode('|', $this->dontRedirectOperatingSystems))) {
+        } elseif ($this->redirectOperatingSystems !== '' && in_array($this->getCurrentUserOS(), explode('|', $this->redirectOperatingSystems))) {
+            $redirect = true;
+        } elseif ($this->redirectLocales !== '' && $this->matchLocalePatterns(explode('|', $this->redirectLocales)) !== []) {
             $redirect = true;
         } else {
             $redirect = false;
@@ -394,6 +417,9 @@ class Controller extends BlockController
                 }
                 $normalized[$f] = implode('|', $normalized[$f]);
             }
+            foreach (['redirectLocales' => 'redirectLocale'] as $f => $prefix) {
+                $normalized[$f] = $this->normalizeLocales($prefix, $data, $errors);
+            }
             $normalized['redirectEditors'] = (isset($data['redirectEditors']) && $data['redirectEditors']) ? 1 : 0;
             $normalized['redirectCode'] = empty($data['redirectCode']) ? 0 : (int) $data['redirectCode'];
             $redirectCodes = $this->getRedirectCodes();
@@ -430,6 +456,9 @@ class Controller extends BlockController
         $this->set('operatingSystemsList', $this->app->make(OSDetector::class)->getOperatingSystemsList());
         $this->set('myIP', ($ip === null) ? '' : $ip->toString());
         $this->set('myOS', $this->getCurrentUserOS());
+        $this->set('allLanguages', Language::getAll());
+        $this->set('allScripts', explode('|', 'Adlm|Aghb|Ahom|Arab|Armi|Armn|Avst|Bali|Bamu|Bass|Batk|Beng|Bhks|Bopo|Brah|Brai|Bugi|Buhd|Cakm|Cans|Cari|Cham|Cher|Copt|Cprt|Cyrl|Deva|Dogr|Dupl|Egyp|Elba|Elym|Ethi|Geor|Glag|Gong|Gonm|Goth|Gran|Grek|Gujr|Guru|Hanb|Hang|Hani|Hano|Hans|Hant|Hatr|Hebr|Hira|Hluw|Hmng|Hmnp|Hung|Ital|Jamo|Java|Jpan|Kali|Kana|Khar|Khmr|Khoj|Knda|Kore|Kthi|Lana|Laoo|Latn|Lepc|Limb|Lina|Linb|Lisu|Lyci|Lydi|Mahj|Maka|Mand|Mani|Marc|Medf|Mend|Merc|Mero|Mlym|Modi|Mong|Mroo|Mtei|Mult|Mymr|Nand|Narb|Nbat|Newa|Nkoo|Nshu|Ogam|Olck|Orkh|Orya|Osge|Osma|Palm|Pauc|Perm|Phag|Phli|Phlp|Phnx|Plrd|Prti|Rjng|Rohg|Runr|Samr|Sarb|Saur|Sgnw|Shaw|Shrd|Sidd|Sind|Sinh|Sogd|Sogo|Sora|Soyo|Sund|Sylo|Syrc|Tagb|Takr|Tale|Talu|Taml|Tang|Tavt|Telu|Tfng|Tglg|Thaa|Thai|Tibt|Tirh|Ugar|Vaii|Wara|Wcho|Xpeo|Xsux|Yiii|Zanb'));
+        $this->set('allTerritories', Territory::getContinentsAndCountries());
     }
 
     /**
@@ -554,6 +583,80 @@ class Controller extends BlockController
     }
 
     /**
+     * @return string[]
+     */
+    private static function getCurrentBrowserLocales()
+    {
+        static $result;
+        if (!isset($result)) {
+            $result = array_keys(Misc::getBrowserLocales());
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param string[] $patterns
+     *
+     * @return bool
+     */
+    private function matchLocalePatterns(array $patterns)
+    {
+        $locales = $this->getCurrentBrowserLocales();
+        foreach ($patterns as $pattern) {
+            if ($this->matchLocalePattern($locales, $pattern)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param string[] $locales
+     * @param string $pattern
+     *
+     * @return bool
+     */
+    private function matchLocalePattern(array $locales, $pattern)
+    {
+        $patternChunks = explode('-', $pattern);
+        $localeChunks = explode('-', $pattern);
+        if ($patternChunks[0] !== $localeChunks[0]) {
+            return false;
+        }
+        switch (count($localeChunks)) {
+            case 1:
+                $localeChunks = [$localeChunks[0], '', ''];
+                break;
+            case 2:
+                if (strlen($localeChunks[1]) === 4) {
+                    $localeChunks = [$localeChunks[0], $localeChunks[1], ''];
+                } else {
+                    $localeChunks = [$localeChunks[0], '', $localeChunks[1]];
+                }
+                break;
+        }
+        for ($i = 1; $i <= 2; $i++) {
+            switch ($patternChunks[$i]) {
+                case '*':
+                    break;
+                case '_':
+                    if ($localeChunks[$i] !== '') {
+                        return false;
+                    }
+                    break;
+                default:
+                    if ($localeChunks[$i] !== $patternChunks[$i]) {
+                        return false;
+                    }
+                    break;
+            }
+        }
+        return true;
+    }
+
+    /**
      * @return \IPLib\Address\AddressInterface|null
      */
     private function getCurrentUserIP()
@@ -638,5 +741,46 @@ class Controller extends BlockController
                 t('Provide a new URL for the browser to resubmit a GET or POST request'),
             ],
         ];
+    }
+
+    /**
+     * @param string $prefix
+     *
+     * @return string
+     */
+    private function normalizeLocales($prefix, array $data, ErrorList $errors)
+    {
+        $languages = isset($data["{$prefix}_language"]) ? $data["{$prefix}_language"] : null;
+        if (!is_array($languages) || $languages === []) {
+            return '';
+        }
+        $scripts = isset($data["{$prefix}_script"]) ? $data["{$prefix}_script"] : [];
+        if (!is_array($scripts)) {
+            $scripts = [];
+        }
+        $territories = isset($data["{$prefix}_territory"]) ? $data["{$prefix}_territory"] : [];
+        if (!is_array($territories)) {
+            $territories = [];
+        }
+
+        $locales = [];
+        foreach ($languages as $index => $languageID) {
+            if (!is_string($languageID) || $languageID === '') {
+                continue;
+            }
+            $scriptID = isset($scripts[$index]) ? $scripts[$index] : '';
+            if (!is_string($scriptID) || $scriptID === '') {
+                $errors->add('Missing script for language #%s', $index + 1);
+                continue;
+            }
+            $territoryID = isset($territories[$index]) ? $territories[$index] : '';
+            if (!is_string($territoryID) || $territoryID === '') {
+                $errors->add('Missing territory for language #%s', $index + 1);
+                continue;
+            }
+            $locales[] = "{$languageID}-{$scriptID}-{$territoryID}";
+        }
+
+        return implode('|', $locales);
     }
 }

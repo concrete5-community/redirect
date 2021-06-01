@@ -38,6 +38,9 @@
     <field name="dontRedirectOperatingSystems" type="text" comment="Don't redirect users using specified Operating Systems">
       <notnull/>
     </field>
+    <field name="redirectLocales" type="text" comment="Redirect users by browser language">
+      <notnull/>
+    </field>
     <field name="redirectEditors" type="boolean" comment="Redirect users that can edit the page containing the block?">
       <notnull/>
     </field>
