@@ -22,7 +22,7 @@ class Controller extends Package implements ProviderInterface
      *
      * @var string
      */
-    protected $pkgVersion = '2.3.2';
+    protected $pkgVersion = '2.3.3';
 
     /**
      * The minimum concrete5 version.
