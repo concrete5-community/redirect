@@ -494,7 +494,7 @@ class Controller extends BlockController
         $this->set('operatingSystemsList', $this->app->make(OSDetector::class)->getOperatingSystemsList());
         $this->set('myIP', ($ip === null) ? '' : $ip->toString());
         $this->set('myOS', $this->getCurrentUserOS());
-        $this->set('allLanguages', Language::getAll());
+        $this->set('allLanguages', Language::getAll(true, true));
         $this->set('allScripts', explode('|', 'Adlm|Aghb|Ahom|Arab|Armi|Armn|Avst|Bali|Bamu|Bass|Batk|Beng|Bhks|Bopo|Brah|Brai|Bugi|Buhd|Cakm|Cans|Cari|Cham|Cher|Copt|Cprt|Cyrl|Deva|Dogr|Dupl|Egyp|Elba|Elym|Ethi|Geor|Glag|Gong|Gonm|Goth|Gran|Grek|Gujr|Guru|Hanb|Hang|Hani|Hano|Hans|Hant|Hatr|Hebr|Hira|Hluw|Hmng|Hmnp|Hung|Ital|Jamo|Java|Jpan|Kali|Kana|Khar|Khmr|Khoj|Knda|Kore|Kthi|Lana|Laoo|Latn|Lepc|Limb|Lina|Linb|Lisu|Lyci|Lydi|Mahj|Maka|Mand|Mani|Marc|Medf|Mend|Merc|Mero|Mlym|Modi|Mong|Mroo|Mtei|Mult|Mymr|Nand|Narb|Nbat|Newa|Nkoo|Nshu|Ogam|Olck|Orkh|Orya|Osge|Osma|Palm|Pauc|Perm|Phag|Phli|Phlp|Phnx|Plrd|Prti|Rjng|Rohg|Runr|Samr|Sarb|Saur|Sgnw|Shaw|Shrd|Sidd|Sind|Sinh|Sogd|Sogo|Sora|Soyo|Sund|Sylo|Syrc|Tagb|Takr|Tale|Talu|Taml|Tang|Tavt|Telu|Tfng|Tglg|Thaa|Thai|Tibt|Tirh|Ugar|Vaii|Wara|Wcho|Xpeo|Xsux|Yiii|Zanb'));
         $this->set('allTerritories', Territory::getContinentsAndCountries());
     }
