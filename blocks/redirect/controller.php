@@ -283,7 +283,7 @@ class Controller extends BlockController
             $redirect = true;
         } elseif ($this->redirectOperatingSystems !== '' && in_array($this->getCurrentUserOS(), explode('|', $this->redirectOperatingSystems))) {
             $redirect = true;
-        } elseif ($this->redirectLocales !== '' && $this->matchLocalePatterns(explode('|', $this->redirectLocales)) !== []) {
+        } elseif ($this->redirectLocales !== '' && $this->matchLocalesPatterns(explode('|', $this->redirectLocales))) {
             $redirect = true;
         } else {
             $redirect = false;
@@ -655,11 +655,11 @@ class Controller extends BlockController
      *
      * @return bool
      */
-    private function matchLocalePatterns(array $patterns)
+    private function matchLocalesPatterns(array $patterns)
     {
         $locales = $this->getCurrentBrowserLocales();
         foreach ($patterns as $pattern) {
-            if ($this->matchLocalePattern($locales, $pattern)) {
+            if ($this->matchLocalesPattern($locales, $pattern)) {
                 return true;
             }
         }
@@ -673,11 +673,27 @@ class Controller extends BlockController
      *
      * @return bool
      */
-    private function matchLocalePattern(array $locales, $pattern)
+    private function matchLocalesPattern(array $locales, $pattern)
     {
+        foreach ($locales as $locale) {
+            if ($this->matchLocalePattern($locale, $pattern)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @param string $locales
+     * @param string $pattern
+     *
+     * @return bool
+     */
+    private function matchLocalePattern($locale, $pattern)
+    {
+        $localeChunks = explode('-', $locale);
         $patternChunks = explode('-', $pattern);
-        $localeChunks = explode('-', $pattern);
-        if ($patternChunks[0] !== $localeChunks[0]) {
+        if ($localeChunks[0] !== $patternChunks[0]) {
             return false;
         }
         switch (count($localeChunks)) {
