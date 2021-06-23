@@ -58,7 +58,7 @@ class Controller extends BlockController
      *
      * @var int
      */
-    protected $btInterfaceWidth = 750;
+    protected $btInterfaceWidth = 800;
 
     /**
      * Height of the add/edit dialog.
