@@ -27,6 +27,7 @@ use Concrete\Core\Editor\LinkAbstractor;
  * @var string $myOS
  * @var array $allLanguages
  * @var string[] $allLanguages
+ * @var array $allScripts
  * @var array $allTerritories
  */
 
@@ -244,8 +245,8 @@ echo Core::make('helper/concrete/ui')->tabs([
         $languageOptions .= '<option value="' . h($languageCode) . '">' . h($languageName) . '</option>';
     }
     $scriptOptions = '<option value="*">&lt;' . h(tc('script', 'any')) . '&gt;</option><option value="_">&lt;' . h(tc('script', 'none')) . '&gt;</option>';
-    foreach ($allScripts as $scriptCode) {
-        $scriptOptions .= '<option value="' . h($scriptCode) . '">' . h($scriptCode) . '</option>';
+    foreach ($allScripts as $scriptCode => $scriptName) {
+        $scriptOptions .= '<option value="' . h($scriptCode) . '">' . h($scriptName) . '</option>';
     }
     $territoryOptions = '<option value="*">&lt;' . h(tc('territory', 'any')) . '&gt;</option><option value="_">&lt;' . h(tc('territory', 'none')) . '&gt;</option>';
     foreach ($allTerritories as $territory) {
@@ -301,9 +302,30 @@ echo Core::make('helper/concrete/ui')->tabs([
                         checkEmpty();
                     })
             ));
-            $tr.find('select').selectize().on('change', function() {
-                checkEmpty();
-            });
+            $tr.find('select')
+                .selectize({
+                    searchField: ['value', 'text'],
+                    render: {
+                        item: function(data, escape) {
+                            if (data.text === data.value || data.value === '_' || data.value === '*') {
+                                return '<div class="item">' + escape(data.text) + '</div>';
+                            }
+                            return '<div class="item" style="width: 95%">' + escape(data.text) + ' <code class="pull-right" style="font-size:10px">' + escape(data.value) + '</code></div>';
+                        },
+                        option: function (data, escape) {
+                            var r = '<div class="option">' + escape(data.text);
+                            if (data.text !== data.value && data.value !== '_' && data.value !== '*') {
+                                r += '<code class="pull-right" style="font-size:10px">' + escape(data.value) + '</code>';
+                            }
+                            r += '</div>';
+                            return r;
+                        }
+                    }
+                })
+                .on('change', function() {
+                    checkEmpty();
+                })
+            ;
         }
         function checkEmpty() {
             var someEmpty = false;

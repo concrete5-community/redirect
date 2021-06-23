@@ -495,7 +495,7 @@ class Controller extends BlockController
         $this->set('myIP', ($ip === null) ? '' : $ip->toString());
         $this->set('myOS', $this->getCurrentUserOS());
         $this->set('allLanguages', Language::getAll(true, true));
-        $this->set('allScripts', explode('|', 'Adlm|Aghb|Ahom|Arab|Armi|Armn|Avst|Bali|Bamu|Bass|Batk|Beng|Bhks|Bopo|Brah|Brai|Bugi|Buhd|Cakm|Cans|Cari|Cham|Cher|Copt|Cprt|Cyrl|Deva|Dogr|Dupl|Egyp|Elba|Elym|Ethi|Geor|Glag|Gong|Gonm|Goth|Gran|Grek|Gujr|Guru|Hanb|Hang|Hani|Hano|Hans|Hant|Hatr|Hebr|Hira|Hluw|Hmng|Hmnp|Hung|Ital|Jamo|Java|Jpan|Kali|Kana|Khar|Khmr|Khoj|Knda|Kore|Kthi|Lana|Laoo|Latn|Lepc|Limb|Lina|Linb|Lisu|Lyci|Lydi|Mahj|Maka|Mand|Mani|Marc|Medf|Mend|Merc|Mero|Mlym|Modi|Mong|Mroo|Mtei|Mult|Mymr|Nand|Narb|Nbat|Newa|Nkoo|Nshu|Ogam|Olck|Orkh|Orya|Osge|Osma|Palm|Pauc|Perm|Phag|Phli|Phlp|Phnx|Plrd|Prti|Rjng|Rohg|Runr|Samr|Sarb|Saur|Sgnw|Shaw|Shrd|Sidd|Sind|Sinh|Sogd|Sogo|Sora|Soyo|Sund|Sylo|Syrc|Tagb|Takr|Tale|Talu|Taml|Tang|Tavt|Telu|Tfng|Tglg|Thaa|Thai|Tibt|Tirh|Ugar|Vaii|Wara|Wcho|Xpeo|Xsux|Yiii|Zanb'));
+        $this->set('allScripts', $this->getAllScripts());
         $this->set('allTerritories', Territory::getContinentsAndCountries());
     }
 
@@ -836,20 +836,42 @@ class Controller extends BlockController
 
         $locales = [];
         foreach ($languages as $index => $languageID) {
-            if (!is_string($languageID) || $languageID === '') {
-                continue;
+            $good = true;
+            if (!is_string($languageID)) {
+                $languageID = '';
+            }
+            if ($languageID === '') {
+                $good = false;
             }
             $scriptID = isset($scripts[$index]) ? $scripts[$index] : '';
-            if (!is_string($scriptID) || $scriptID === '') {
-                $errors->add('Missing script for language #%s', $index + 1);
-                continue;
+            if (!is_string($scriptID)) {
+                $scriptID = '';
+            }
+            if ($languageID === '') {
+                if ($scriptID !== '*') {
+                    $errors->add(t(/*i18n: 'script' is the part of a locale identifier, for example 'Latn' in 'it_IT_Latn'*/'If you specify the script, you have to specify the language too'));
+                    $good = false;
+                }
+            } elseif ($scriptID === '') {
+                $errors->add(t(/*i18n: 'script' is the part of a locale identifier, for example 'Latn' in 'it_IT_Latn'*/'The script for the language %s is missing', $languageID));
+                $good = false;
             }
             $territoryID = isset($territories[$index]) ? $territories[$index] : '';
-            if (!is_string($territoryID) || $territoryID === '') {
-                $errors->add('Missing territory for language #%s', $index + 1);
-                continue;
+            if (!is_string($territoryID)) {
+                $territoryID = '';
             }
-            $locales[] = "{$languageID}-{$scriptID}-{$territoryID}";
+            if ($languageID === '') {
+                if ($territoryID !== '*') {
+                    $errors->add(t('If you specify the territory, you have to specify the language too'));
+                    $good = false;
+                }
+            } elseif ($territoryID === '') {
+                $errors->add(t('Missing territory for the language #%s', $languageID));
+                $good = false;
+            }
+            if ($good) {
+                $locales[] = "{$languageID}-{$scriptID}-{$territoryID}";
+            }
         }
 
         return implode('|', $locales);
@@ -880,5 +902,18 @@ class Controller extends BlockController
         $obj->getQuery()->modify($qs);
 
         return (string) $obj;
+    }
+
+    /**
+     * @return array
+     */
+    private function getAllScripts()
+    {
+        if (class_exists('Punic\Script')) {
+            return \Punic\Script::getAllScripts(\Punic\Script::ALTERNATIVENAME_STANDALONE);
+        }
+        $scriptIDs = explode('|', 'Adlm|Afak|Aghb|Ahom|Arab|Aran|Armi|Armn|Avst|Bali|Bamu|Bass|Batk|Beng|Bhks|Blis|Bopo|Brah|Brai|Bugi|Buhd|Cakm|Cans|Cari|Cham|Cher|Chrs|Cirt|Copt|Cprt|Cyrl|Cyrs|Deva|Diak|Dogr|Dsrt|Dupl|Egyd|Egyh|Egyp|Elba|Elym|Ethi|Geok|Geor|Glag|Gong|Gonm|Goth|Gran|Grek|Gujr|Guru|Hanb|Hang|Hani|Hano|Hans|Hant|Hatr|Hebr|Hira|Hluw|Hmng|Hmnp|Hrkt|Hung|Inds|Ital|Jamo|Java|Jpan|Jurc|Kali|Kana|Khar|Khmr|Khoj|Kits|Knda|Kore|Kpel|Kthi|Lana|Laoo|Latf|Latg|Latn|Lepc|Limb|Lina|Linb|Lisu|Loma|Lyci|Lydi|Mahj|Maka|Mand|Mani|Marc|Maya|Medf|Mend|Merc|Mero|Mlym|Modi|Mong|Moon|Mroo|Mtei|Mult|Mymr|Nand|Narb|Nbat|Newa|Nkgb|Nkoo|Nshu|Ogam|Olck|Orkh|Orya|Osge|Osma|Palm|Pauc|Perm|Phag|Phli|Phlp|Phlv|Phnx|Plrd|Prti|Qaag|Rjng|Rohg|Roro|Runr|Samr|Sara|Sarb|Saur|Sgnw|Shaw|Shrd|Sidd|Sind|Sinh|Sogd|Sogo|Sora|Soyo|Sund|Sylo|Syrc|Syre|Syrj|Syrn|Tagb|Takr|Tale|Talu|Taml|Tang|Tavt|Telu|Teng|Tfng|Tglg|Thaa|Thai|Tibt|Tirh|Ugar|Vaii|Visp|Wara|Wcho|Wole|Xpeo|Xsux|Yezi|Yiii|Zanb|Zinh|Zmth|Zsye|Zsym|Zxxx|Zyyy|Zzzz');
+
+        return array_combine($scriptIDs, $scriptIDs);
     }
 }
