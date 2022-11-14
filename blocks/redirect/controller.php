@@ -381,11 +381,6 @@ class Controller extends BlockController
                     $normalized['redirectToCID'] = isset($data['redirectToCID']) ? (int) $data['redirectToCID'] : 0;
                     if ($normalized['redirectToCID'] <= 0) {
                         $errors->add(t('Please specify the destination page'));
-                    } else {
-                        $c = $this->getCurrentPage();
-                        if ($c !== null && $c->getCollectionID() == $normalized['redirectToCID']) {
-                            $errors->add(t('The destination page is the current page.'));
-                        }
                     }
                     break;
                 case 'url':
@@ -596,15 +591,24 @@ class Controller extends BlockController
     {
         if ($this->redirectToCID) {
             $to = Page::getByID($this->redirectToCID);
-            if (is_object($to) && !$to->isError()) {
-                $destinationUrl = (string) $this->app->make('url/manager')->resolve([$to]);
-            } else {
-                $destinationUrl = '';
+            if (!is_object($to) || $to->isError()) {
+                return '';
             }
+            $currentPage = Page::getCurrentPage();
+            if (is_object($currentPage) && !$currentPage->isError()) {
+                $currentPageID = (int) $currentPage->getCollectionID();
+                if ($currentPageID === (int) $this->redirectToCID) {
+                    return '';
+                }
+            }
+            $destinationUrl = (string) $this->app->make('url/manager')->resolve([$to]);
         } else {
             $destinationUrl = (string) $this->redirectToURL;
         }
-        if ($destinationUrl !== '' && $keepQuerystring) {
+        if ($destinationUrl === '') {
+            return '';
+        }
+        if ($keepQuerystring) {
             $destinationUrl = $this->copyQuerystring($destinationUrl);
         }
         return $destinationUrl;
