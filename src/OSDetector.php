@@ -29,6 +29,7 @@ class OSDetector
     public function detectOS(Request $request)
     {
         $dd = new DeviceDetector($request->headers->get('User-Agent'));
+        $dd->setCache($this->app->make(OSDetector\Cache::class));
         $dd->parse();
         $shortName = (string) $dd->getOs('short_name');
         $family = (string) OperatingSystem::getOsFamily($shortName);
