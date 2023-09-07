@@ -248,19 +248,7 @@ echo $userInterface->tabs([
             $varName = $info[0];
             $value = isset($$varName) ? implode("\n", preg_split('/[\\s,]+/', str_replace('|', ' ', $$varName), -1, PREG_SPLIT_NO_EMPTY)) : ''; ?>
             <div class="<?= $ui->formGroup ?>">
-                <?= $form->label(
-                    $varName,
-                    $info[1],
-                    [
-                        'class' => 'launch-tooltip',
-                        'data-placement' => 'right',
-                        'data-html' => 'true',
-                        'title' => t(
-                            'Separate multiple values by spaces, new lines or commas.<br />IPv4 and IPv6 addresses are supported.<br />You can specify single IP addresses as well as ranges (examples: %s)',
-                            \Punic\Misc::join(['<code>100.200.*.*</code>', '<code>100.200.0.0/16</code>', '<code>1:2::0/8</code>', '<code>1:2::*:*</code>)'])
-                        ),
-                    ]
-                ) ?>
+                <?= $form->label($varName, $info[1]) ?>
                 <?= $form->textarea($varName, $value, ['rows' => '5', 'style' => 'resize: vertical;']) ?>
             </div>
             <?php
