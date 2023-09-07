@@ -3,23 +3,28 @@
 namespace Concrete\Package\Redirect\Block\Redirect;
 
 use Concrete\Core\Block\BlockController;
+use Concrete\Core\Editor\EditorInterface;
 use Concrete\Core\Editor\LinkAbstractor;
 use Concrete\Core\Error\ErrorList\ErrorList;
+use Concrete\Core\Error\UserMessageException;
 use Concrete\Core\Http\Response;
 use Concrete\Core\Http\ResponseFactoryInterface;
 use Concrete\Core\Localization\Localization;
 use Concrete\Core\Page\Page;
 use Concrete\Core\Permission\Checker;
-use Exception;
-use Group;
+use Concrete\Core\User\Group;
+use Concrete\Core\User\User;
 use IPLib\Factory as IPFactory;
 use League\Url\Url;
 use MLRedirect\OSDetector;
+use MLRedirect\UI;
 use Punic\Language;
 use Punic\Misc;
+use Punic\Script;
 use Punic\Territory;
 use RuntimeException;
-use User;
+use Concrete\Core\Asset\AssetList;
+use Concrete\Core\Asset\Asset;
 
 defined('C5_EXECUTE') or die('Access denied.');
 
@@ -65,19 +70,26 @@ class Controller extends BlockController
      *
      * @var int
      */
-    protected $btInterfaceHeight = 460;
+    protected $btInterfaceHeight = 560;
+
+    /**
+     * {@inheritdoc}
+     *
+     * @see \Concrete\Core\Block\BlockController::$supportSavingNullValues
+     */
+    protected $supportSavingNullValues = true;
 
     /**
      * HTTP redirect code.
      *
-     * @var int|string|null
+     * @var int|string
      */
     protected $redirectCode;
 
     /**
      * Destination page: collection ID.
      *
-     * @var int|string
+     * @var int|string|null
      */
     protected $redirectToCID;
 
@@ -140,14 +152,14 @@ class Controller extends BlockController
     /**
      * Redirect users that can edit the page containing the block?
      *
-     * @var bool|string
+     * @var bool|int|string
      */
     protected $redirectEditors;
 
     /**
      * Redirect users that can edit the page containing the block?
      *
-     * @var bool|string
+     * @var bool|int|string
      */
     protected $keepQuerystring;
 
@@ -161,7 +173,7 @@ class Controller extends BlockController
     /**
      * Use a custom message?
      *
-     * @var bool|string
+     * @var bool|int|string
      */
     protected $useCustomMessage;
 
@@ -183,9 +195,14 @@ class Controller extends BlockController
     private $userCanEditCurrentPage = null;
 
     /**
+     * @var \Symfony\Component\HttpFoundation\Response|false|null
+     */
+    private $response = false;
+
+    /**
      * {@inheritdoc}
      *
-     * @see BlockController::getBlockTypeName()
+     * @see \Concrete\Core\Block\BlockController::getBlockTypeName()
      */
     public function getBlockTypeName()
     {
@@ -195,7 +212,7 @@ class Controller extends BlockController
     /**
      * {@inheritdoc}
      *
-     * @see BlockController::getBlockTypeDescription()
+     * @see \Concrete\Core\Block\BlockController::getBlockTypeDescription()
      */
     public function getBlockTypeDescription()
     {
@@ -204,11 +221,35 @@ class Controller extends BlockController
 
     public function add()
     {
+        $this->set('redirectToCID', null);
+        $this->set('redirectToURL', '');
+        $this->set('redirectCode', $this->getRedirectCode());
+        $this->set('redirectGroups', []);
+        $this->set('dontRedirectGroups', []);
+        $this->set('redirectIPs', '');
+        $this->set('dontRedirectIPs', '');
+        $this->set('redirectOperatingSystems', '');
+        $this->set('dontRedirectOperatingSystems', '');
+        $this->set('redirectLocales', '');
+        $this->set('redirectEditors', false);
+        $this->set('keepQuerystring', false);
+        $this->set('showMessage', static::SHOWMESSAGE_EDITORS);
+        $this->set('useCustomMessage', false);
+        $this->set('customMessage', '');
         $this->addOrEdit();
     }
 
     public function edit()
     {
+        $this->set('redirectToCID', $this->redirectToCID ? (int) $this->redirectToCID : null);
+        $this->set('redirectCode', $this->getRedirectCode());
+        $this->set('redirectGroups', $this->getGroupByIDs(explode(',', $this->redirectGroupIDs)));
+        $this->set('dontRedirectGroups', $this->getGroupByIDs(explode(',', $this->dontRedirectGroupIDs)));
+        $this->set('redirectEditors', !empty($this->redirectEditors));
+        $this->set('keepQuerystring', !empty($this->keepQuerystring));
+        $this->set('showMessage', (int) $this->showMessage);
+        $this->set('useCustomMessage', !empty($this->useCustomMessage));
+        $this->set('customMessage', '');
         $this->addOrEdit();
     }
 
@@ -231,13 +272,13 @@ class Controller extends BlockController
      *
      * @param mixed $data
      *
-     * @throws Exception
+     * @throws \Concrete\Core\Error\UserMessageException
      */
     public function save($data)
     {
         $normalized = $this->normalize($data);
         if (!is_array($normalized)) {
-            throw new Exception(implode("\n", $normalized->getList()));
+            throw new UserMessageException(implode("\n", $normalized->getList()));
         }
         parent::save($normalized);
     }
@@ -249,56 +290,12 @@ class Controller extends BlockController
      */
     public function on_start()
     {
-        $user = $this->getCurrentUser();
-        // Never redirect the administrator
-        if ($user !== null && $user->isSuperUser()) {
-            return;
+        $response = $this->getResponse();
+        if ($response !== null) {
+            $response->prepare($this->request);
+            $response->send();
+            exit(0);
         }
-        $c = $this->getCurrentPage();
-        if ($c !== null) {
-            // Never redirect if the page is in edit mode
-            if ($c->isEditMode()) {
-                return;
-            }
-            // Don't redirect users that can edit the page
-            if (!$this->redirectEditors && $this->userCanEditCurrentPage()) {
-                return;
-            }
-        }
-        // Never redirect visitors from specific IP addresses
-        if ($this->dontRedirectIPs !== '' && $this->isUserIpInList($this->dontRedirectIPs)) {
-            return;
-        }
-        // Never redirect users belonging to specific groups
-        if ($this->dontRedirectGroupIDs !== '' && array_intersect(explode(',', $this->dontRedirectGroupIDs), $this->getCurrentUserGroups()) !== []) {
-            return;
-        }
-        // Never redirect users with specific operating systems
-        if ($this->dontRedirectOperatingSystems !== '' && in_array($this->getCurrentUserOS(), explode('|', $this->dontRedirectOperatingSystems))) {
-            return;
-        }
-        if ($this->redirectIPs !== '' && $this->isUserIpInList($this->redirectIPs)) {
-            $redirect = true;
-        } elseif ($this->redirectGroupIDs !== '' && array_intersect(explode(',', $this->redirectGroupIDs), $this->getCurrentUserGroups())) {
-            $redirect = true;
-        } elseif ($this->redirectOperatingSystems !== '' && in_array($this->getCurrentUserOS(), explode('|', $this->redirectOperatingSystems))) {
-            $redirect = true;
-        } elseif ($this->redirectLocales !== '' && $this->matchLocalesPatterns(explode('|', $this->redirectLocales))) {
-            $redirect = true;
-        } else {
-            $redirect = false;
-        }
-
-        if (!$redirect) {
-            return;
-        }
-        $response = $this->createRedirectResponse();
-        if ($response === null) {
-            return;
-        }
-        $response->prepare($this->request);
-        $response->send();
-        exit(0);
     }
 
     public function view()
@@ -333,6 +330,7 @@ class Controller extends BlockController
             }
             break;
         }
+        $output = '';
         if ($showMessage) {
             if ($this->useCustomMessage) {
                 $output = (string) $this->customMessage;
@@ -355,8 +353,8 @@ class Controller extends BlockController
                 }
                 $output .= '</span>';
             }
-            $this->set('output', $output);
         }
+        $this->set('output', $output);
     }
 
     /**
@@ -369,18 +367,22 @@ class Controller extends BlockController
     private function normalize($data)
     {
         $errors = $this->app->make('helper/validation/error');
-        /* @var \Concrete\Core\Error\ErrorList\ErrorList $errors */
         $normalized = [];
-        if (!is_array($data) || empty($data)) {
+        if (!is_array($data) || $data === []) {
             $errors->add(t('No data received'));
         } else {
-            $normalized['redirectToCID'] = 0;
+            $normalized['redirectToCID'] = null;
             $normalized['redirectToURL'] = '';
-            switch (isset($data['redirectToType']) ? $data['redirectToType'] : '') {
+            switch (empty($data['redirectToType']) ? '' : (string) $data['redirectToType']) {
                 case 'cid':
                     $normalized['redirectToCID'] = isset($data['redirectToCID']) ? (int) $data['redirectToCID'] : 0;
                     if ($normalized['redirectToCID'] <= 0) {
                         $errors->add(t('Please specify the destination page'));
+                    } else {
+                        $c = $this->getCurrentPage();
+                        if ($c !== null && $normalized['redirectToCID'] === (int) $c->getCollectionID()) {
+                            $errors->add(t('The destination page is the current page.'));
+                        }
                     }
                     break;
                 case 'url':
@@ -401,65 +403,62 @@ class Controller extends BlockController
                     $errors->add(t('Please specify the kind of the destination page'));
                     break;
             }
-            foreach (['redirectGroupIDs', 'dontRedirectGroupIDs'] as $var) {
+            foreach (['redirectGroupIDs', 'dontRedirectGroupIDs'] as $field) {
                 $list = [];
-                if (isset($data[$var]) && is_string($data[$var])) {
-                    foreach (preg_split('/\D+/', $data[$var], -1, PREG_SPLIT_NO_EMPTY) as $gID) {
+                if (!empty($data[$field]) && is_string($data[$field])) {
+                    foreach (preg_split('/\D+/', $data[$field], -1, PREG_SPLIT_NO_EMPTY) as $gID) {
                         $gID = (int) $gID;
-                        if ($gID > 0 && !in_array($gID, $list, true) && Group::getByID($gID) !== null) {
+                        if ($gID > 0 && !in_array($gID, $list, true)) {
                             $list[] = $gID;
-                        }
-                    }
-                }
-                $normalized[$var] = implode(',', $list);
-            }
-            foreach (['redirectIPs', 'dontRedirectIPs'] as $f) {
-                $normalized[$f] = '';
-                if (isset($data[$f])) {
-                    $v = [];
-                    foreach (preg_split('/[\\s,]+/', str_replace('|', ' ', (string) $data[$f]), -1, PREG_SPLIT_NO_EMPTY) as $s) {
-                        $s = trim($s);
-                        if ($s !== '') {
-                            $ipRange = IPFactory::rangeFromString($s);
-                            if ($ipRange === null) {
-                                $errors->add(t('Invalid IP address: %s', $s));
-                            } else {
-                                $v[] = $ipRange->toString(false);
+                            if ($this->getGroupByID($gID) === null) {
+                                $errors->add(t('Invalid group ID: %s', $gID));
                             }
                         }
                     }
-                    if (!empty($v)) {
-                        $normalized[$f] = implode('|', $v);
+                }
+                $normalized[$field] = implode(',', $list);
+            }
+            foreach (['redirectIPs', 'dontRedirectIPs'] as $field) {
+                $list = [];
+                if (!empty($data[$field]) && is_string($data[$field])) {
+                    foreach (preg_split('/[\\s,]+/', str_replace('|', ' ', $data[$field]), -1, PREG_SPLIT_NO_EMPTY) as $s) {
+                        $ipRange = IPFactory::rangeFromString($s);
+                        if ($ipRange === null) {
+                            $errors->add(t('Invalid IP address: %s', $s));
+                        } else {
+                            $list[] = $ipRange->toString();
+                        }
                     }
                 }
+                $normalized[$field] = implode('|', $list);
             }
             $validOperatingSystems = $this->app->make(OSDetector::class)->getOperatingSystemsList();
-            foreach (['redirectOperatingSystems', 'dontRedirectOperatingSystems'] as $f) {
-                $normalized[$f] = [];
-                if (isset($data[$f]) && is_array($data[$f])) {
-                    foreach ($data[$f] as $os) {
+            foreach (['redirectOperatingSystems', 'dontRedirectOperatingSystems'] as $field) {
+                $normalized[$field] = [];
+                if (isset($data[$field]) && is_array($data[$field])) {
+                    foreach ($data[$field] as $os) {
                         $os = is_string($os) ? $os : '';
-                        if ($os !== '' && !in_array($os, $normalized[$f], true)) {
-                            $normalized[$f][] = $os;
+                        if ($os !== '' && !in_array($os, $normalized[$field], true)) {
+                            $normalized[$field][] = $os;
                             if (!in_array($os, $validOperatingSystems, true)) {
                                 $errors->add(t('Invalid Operating System: %s', $os));
                             }
                         }
                     }
                 }
-                $normalized[$f] = implode('|', $normalized[$f]);
+                $normalized[$field] = implode('|', $normalized[$field]);
             }
-            foreach (['redirectLocales' => 'redirectLocale'] as $f => $prefix) {
-                $normalized[$f] = $this->normalizeLocales($prefix, $data, $errors);
+            foreach (['redirectLocales' => 'redirectLocale'] as $field => $prefix) {
+                $normalized[$field] = $this->normalizeLocales($prefix, $data, $errors);
             }
-            $normalized['redirectEditors'] = (isset($data['redirectEditors']) && $data['redirectEditors']) ? 1 : 0;
-            $normalized['keepQuerystring'] = (isset($data['keepQuerystring']) && $data['keepQuerystring']) ? 1 : 0;
+            $normalized['redirectEditors'] = empty($data['redirectEditors']) ? 0 : 1;
+            $normalized['keepQuerystring'] = empty($data['keepQuerystring']) ? 0 : 1;
             $normalized['redirectCode'] = empty($data['redirectCode']) ? 0 : (int) $data['redirectCode'];
             $redirectCodes = $this->getRedirectCodes();
             if (!isset($redirectCodes[$normalized['redirectCode']])) {
                 $errors->add(t('Please specify the redirect type'));
             }
-            $normalized['showMessage'] = (isset($data['showMessage']) && $data['showMessage']) ? (int) $data['showMessage'] : 0;
+            $normalized['showMessage'] = empty($data['showMessage']) ? 0 : (int) $data['showMessage'];
             switch ($normalized['showMessage']) {
                 case self::SHOWMESSAGE_NEVER:
                 case self::SHOWMESSAGE_EDITORS:
@@ -469,7 +468,7 @@ class Controller extends BlockController
                     $errors->add(t('Please specify if the message should be shown'));
                     break;
             }
-            $normalized['useCustomMessage'] = (isset($data['useCustomMessage']) && $data['useCustomMessage']) ? 1 : 0;
+            $normalized['useCustomMessage'] = empty($data['useCustomMessage']) ? 0 : 1;
             if (isset($data['customMessage']) && is_string($data['customMessage']) && $data['customMessage'] !== '') {
                 $normalized['customMessage'] = LinkAbstractor::translateTo($data['customMessage']);
             } else {
@@ -482,16 +481,19 @@ class Controller extends BlockController
 
     private function addOrEdit()
     {
+        $this->registerSelectize();
         $this->requireAsset('selectize');
         $ip = $this->getCurrentUserIP();
-        $this->set('redirectCode', $this->getRedirectCode());
+        $this->set('userInterface', $this->app->make('helper/concrete/ui'));
+        $this->set('ui', $this->app->make(UI::class));
+        $this->set('editor', $this->app->make(EditorInterface::class));
         $this->set('redirectCodes', $this->getRedirectCodes());
-        $this->set('operatingSystemsList', $this->app->make(OSDetector::class)->getOperatingSystemsList());
-        $this->set('myIP', ($ip === null) ? '' : $ip->toString());
+        $this->set('operatingSystems', $this->app->make(OSDetector::class)->getOperatingSystemsList());
+        $this->set('languages', Language::getAll(true, true));
+        $this->set('scripts', $this->getAllScripts());
+        $this->set('territories', Territory::getContinentsAndCountries());
+        $this->set('myIP', $ip === null ? '' : $ip->toString());
         $this->set('myOS', $this->getCurrentUserOS());
-        $this->set('allLanguages', Language::getAll(true, true));
-        $this->set('allScripts', $this->getAllScripts());
-        $this->set('allTerritories', Territory::getContinentsAndCountries());
     }
 
     /**
@@ -512,46 +514,45 @@ class Controller extends BlockController
     /**
      * Get the currently logged in user.
      *
-     * @return User|null
+     * @return \Concrete\Core\User\User|null
      */
     private function getCurrentUser()
     {
         static $result;
-        if (!isset($result)) {
+        if ($result === null) {
             $result = false;
-            if (User::isLoggedIn()) {
-                $u = new User();
-                if ($u->isRegistered()) {
-                    $result = $u;
-                }
+            $user = $this->app->make(User::class);
+            if ($user->isRegistered()) {
+                $result = $user;
             }
         }
 
-        return ($result === false) ? null : $result;
+        return $result === false ? null : $result;
     }
 
     /**
      * Return the list of the ID of the current user.
      *
-     * @return string[]
+     * @return int[]
      */
-    private function getCurrentUserGroups()
+    private function getCurrentUserGroupsIDs()
     {
         static $result;
-        if (!isset($result)) {
-            $result = [];
+        if ($result === null) {
+            $groups = [];
             $me = $this->getCurrentUser();
             if ($me === null) {
-                $result[] = (string) GUEST_GROUP_ID;
+                $groups[] = (int) GUEST_GROUP_ID;
             } else {
-                $result[] = (string) REGISTERED_GROUP_ID;
+                $groups[] = (int) REGISTERED_GROUP_ID;
                 foreach ($me->getUserGroups() as $gID) {
-                    $gID = (string) $gID;
+                    $gID = (int) $gID;
                     if ($gID != GUEST_GROUP_ID && $gID != REGISTERED_GROUP_ID) {
-                        $result[] = $gID;
+                        $result[] = (int) $gID;
                     }
                 }
             }
+            $result = $groups;
         }
 
         return $result;
@@ -590,14 +591,15 @@ class Controller extends BlockController
     private function buildDestinationUrl($keepQuerystring)
     {
         if ($this->redirectToCID) {
-            $to = Page::getByID($this->redirectToCID);
-            if (!is_object($to) || $to->isError()) {
+            $redirectToCID = (int) $this->redirectToCID;
+            $to = Page::getByID($redirectToCID);
+            if (!$to || $to->isError()) {
                 return '';
             }
             $currentPage = Page::getCurrentPage();
-            if (is_object($currentPage) && !$currentPage->isError()) {
+            if ($currentPage && !$currentPage->isError()) {
                 $currentPageID = (int) $currentPage->getCollectionID();
-                if ($currentPageID === (int) $this->redirectToCID) {
+                if ($currentPageID === $redirectToCID) {
                     return '';
                 }
             }
@@ -611,6 +613,7 @@ class Controller extends BlockController
         if ($keepQuerystring) {
             $destinationUrl = $this->copyQuerystring($destinationUrl);
         }
+
         return $destinationUrl;
     }
 
@@ -634,7 +637,7 @@ class Controller extends BlockController
     private function getCurrentUserOS()
     {
         static $result;
-        if (!isset($result)) {
+        if ($result === null) {
             $result = $this->app->make(OSDetector::class)->detectOS($this->request);
         }
 
@@ -647,7 +650,7 @@ class Controller extends BlockController
     private static function getCurrentBrowserLocales()
     {
         static $result;
-        if (!isset($result)) {
+        if ($result === null) {
             $result = array_keys(Misc::getBrowserLocales());
         }
 
@@ -737,26 +740,26 @@ class Controller extends BlockController
     private function getCurrentUserIP()
     {
         static $result;
-        if (!isset($result)) {
+        if ($result === null) {
             $ip = IPFactory::addressFromString($this->request->getClientIp());
-            $result = ($ip === null) ? false : $ip;
+            $result = $ip === null ? false : $ip;
         }
 
-        return ($result === false) ? null : $result;
+        return $result === false ? null : $result;
     }
 
     /**
-     * @param string $ipList
+     * @param string $serializedIPList
      *
      * @return bool
      */
-    private function isUserIpInList($ipList)
+    private function isUserIpInList($serializedIPList)
     {
         $result = false;
-        if ($ipList !== '') {
+        if ($serializedIPList !== '') {
             $ip = $this->getCurrentUserIP();
             if ($ip !== null) {
-                foreach (explode('|', $ipList) as $rangeString) {
+                foreach (explode('|', $serializedIPList) as $rangeString) {
                     $range = IPFactory::rangeFromString($rangeString);
                     if ($range !== null && $range->contains($ip)) {
                         $result = true;
@@ -767,6 +770,28 @@ class Controller extends BlockController
         }
 
         return $result;
+    }
+
+    /**
+     * @param string $serializedGroupIDs
+     *
+     * @return bool
+     */
+    private function isUserInGroupList($serializedGroupIDs)
+    {
+        $groupIDs = array_map('intval', explode(',', $serializedGroupIDs));
+
+        return array_intersect($groupIDs, $this->getCurrentUserGroupsIDs()) !== [];
+    }
+
+    /**
+     * @param string $serializedOSList
+     *
+     * @return bool
+     */
+    private function isUserInOSList($serializedOSList)
+    {
+        return in_array($this->getCurrentUserOS(), explode('|', $serializedOSList), true);
     }
 
     /**
@@ -889,7 +914,7 @@ class Controller extends BlockController
     private function copyQuerystring($url)
     {
         $qs = $this->request->query->all();
-        if (!is_array($qs)) {
+        if (!is_array($qs) || $qs === []) {
             return $url;
         }
         unset($qs['cID']);
@@ -913,11 +938,126 @@ class Controller extends BlockController
      */
     private function getAllScripts()
     {
-        if (class_exists('Punic\Script')) {
-            return \Punic\Script::getAllScripts(\Punic\Script::ALTERNATIVENAME_STANDALONE);
+        if (class_exists(Script::class)) {
+            return Script::getAllScripts(Script::ALTERNATIVENAME_STANDALONE);
         }
         $scriptIDs = explode('|', 'Adlm|Afak|Aghb|Ahom|Arab|Aran|Armi|Armn|Avst|Bali|Bamu|Bass|Batk|Beng|Bhks|Blis|Bopo|Brah|Brai|Bugi|Buhd|Cakm|Cans|Cari|Cham|Cher|Chrs|Cirt|Copt|Cprt|Cyrl|Cyrs|Deva|Diak|Dogr|Dsrt|Dupl|Egyd|Egyh|Egyp|Elba|Elym|Ethi|Geok|Geor|Glag|Gong|Gonm|Goth|Gran|Grek|Gujr|Guru|Hanb|Hang|Hani|Hano|Hans|Hant|Hatr|Hebr|Hira|Hluw|Hmng|Hmnp|Hrkt|Hung|Inds|Ital|Jamo|Java|Jpan|Jurc|Kali|Kana|Khar|Khmr|Khoj|Kits|Knda|Kore|Kpel|Kthi|Lana|Laoo|Latf|Latg|Latn|Lepc|Limb|Lina|Linb|Lisu|Loma|Lyci|Lydi|Mahj|Maka|Mand|Mani|Marc|Maya|Medf|Mend|Merc|Mero|Mlym|Modi|Mong|Moon|Mroo|Mtei|Mult|Mymr|Nand|Narb|Nbat|Newa|Nkgb|Nkoo|Nshu|Ogam|Olck|Orkh|Orya|Osge|Osma|Palm|Pauc|Perm|Phag|Phli|Phlp|Phlv|Phnx|Plrd|Prti|Qaag|Rjng|Rohg|Roro|Runr|Samr|Sara|Sarb|Saur|Sgnw|Shaw|Shrd|Sidd|Sind|Sinh|Sogd|Sogo|Sora|Soyo|Sund|Sylo|Syrc|Syre|Syrj|Syrn|Tagb|Takr|Tale|Talu|Taml|Tang|Tavt|Telu|Teng|Tfng|Tglg|Thaa|Thai|Tibt|Tirh|Ugar|Vaii|Visp|Wara|Wcho|Wole|Xpeo|Xsux|Yezi|Yiii|Zanb|Zinh|Zmth|Zsye|Zsym|Zxxx|Zyyy|Zzzz');
 
         return array_combine($scriptIDs, $scriptIDs);
+    }
+
+    /**
+     * @return \Symfony\Component\HttpFoundation\Response|null
+     */
+    private function getResponse()
+    {
+        if ($this->response === false) {
+            $this->response = $this->shouldRedirect() ? $this->createRedirectResponse() : null;
+        }
+
+        return $this->response;
+    }
+
+    /**
+     * @return bool
+     */
+    private function shouldRedirect()
+    {
+        $user = $this->getCurrentUser();
+        // Never redirect the superuser
+        if ($user !== null && $user->isSuperUser()) {
+            return false;
+        }
+        $c = $this->getCurrentPage();
+        if ($c !== null) {
+            // Never redirect if the page is in edit mode
+            if ($c->isEditMode()) {
+                return false;
+            }
+            // Don't redirect users that can edit the page
+            if (!$this->redirectEditors && $this->userCanEditCurrentPage()) {
+                return false;
+            }
+        }
+        // Never redirect visitors from specific IP addresses
+        if ($this->dontRedirectIPs !== '' && $this->isUserIpInList($this->dontRedirectIPs)) {
+            return false;
+        }
+        // Never redirect users belonging to specific groups
+        if ($this->dontRedirectGroupIDs !== '' && $this->isUserInGroupList($this->dontRedirectGroupIDs)) {
+            return false;
+        }
+        // Never redirect users with specific operating systems
+        if ($this->dontRedirectOperatingSystems !== '' && $this->isUserInOSList($this->dontRedirectOperatingSystems)) {
+            return false;
+        }
+        if ($this->redirectIPs !== '' && $this->isUserIpInList($this->redirectIPs)) {
+            return true;
+        }
+        if ($this->redirectGroupIDs !== '' && $this->isUserInGroupList($this->redirectGroupIDs)) {
+            return true;
+        }
+        if ($this->redirectOperatingSystems !== '' && $this->isUserInOSList($this->redirectOperatingSystems)) {
+            return true;
+        }
+        if ($this->redirectLocales !== '' && $this->matchLocalesPatterns(explode('|', $this->redirectLocales))) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param int|mixed $groupID
+     *
+     * @return \Concrete\Core\User\Group\Group|null
+     */
+    private function getGroupByID($groupID)
+    {
+        static $groupRepository;
+        if (empty($groupID)) {
+            return null;
+        }
+        $groupID = (int) $groupID;
+        if ($groupRepository === null) {
+            $groupRepository = class_exists(Group\GroupRepository::class) ? $this->app->make(Group\GroupRepository::class) : false;
+        }
+
+        $group = $groupRepository === false ? Group\Group::getByID($groupID) : $groupRepository->getGroupById($groupID);
+
+        return $group ? $group : null;
+    }
+
+    /**
+     * @param int[]|mixed[] $groupIDs
+     *
+     * @return \Concrete\Core\User\Group\Group[]
+     */
+    private function getGroupByIDs(array $groupIDs)
+    {
+        $result = [];
+        foreach ($groupIDs as $groupID) {
+            if (($group = $this->getGroupByID($groupID)) !== null) {
+                $result[] = $group;
+            }
+        }
+
+        return $result;
+    }
+
+    private function registerSelectize()
+    {
+        $al = AssetList::getInstance();
+        if ($al->getAssetGroup('selectize')) {
+            return;
+        }
+        $al->register('css', 'selectize', 'css/selectize.css', ['version' => '0.15.2', 'position' => Asset::ASSET_POSITION_HEADER, 'minify' => false, 'combine' => false], 'redirect');
+        $al->register('javascript', 'selectize', 'js/selectize.js', ['version' => '0.15.2', 'position' => Asset::ASSET_POSITION_FOOTER, 'minify' => false, 'combine' => false], 'redirect');
+        $al->registerGroup('selectize',
+            [
+                ['javascript', 'selectize'],
+                ['css', 'selectize']
+            ]
+        );
     }
 }

@@ -2,61 +2,61 @@
 <schema
   xmlns="http://www.concrete5.org/doctrine-xml/0.5"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://www.concrete5.org/doctrine-xml/0.5 http://concrete5.github.io/doctrine-xml/doctrine-xml-0.5.xsd"
+  xsi:schemaLocation="http://www.concrete5.org/doctrine-xml/0.5 https://concretecms.github.io/doctrine-xml/doctrine-xml-0.5.xsd"
 >
+    <table name="btRedirect">
+        <field name="bID" type="integer" comment="Block ID">
+            <unsigned />
+            <key />
+        </field>
+        <field name="redirectToCID" type="integer" comment="Destination page: collection ID">
+            <unsigned />
+        </field>
+        <field name="redirectToURL" type="text" comment="Destination page: external URL">
+            <notnull />
+        </field>
 
-  <table name="btRedirect">
-    <field name="bID" type="integer" comment="Block ID">
-      <unsigned/>
-      <key/>
-    </field>
-    <field name="redirectCode" type="integer" comment="HTTP redirect code">
-      <unsigned/>
-    </field>
-    <field name="redirectToCID" type="integer" comment="Destination page: collection ID">
-      <unsigned/>
-      <notnull/>
-    </field>
-    <field name="redirectToURL" type="text" comment="Destination page: external URL">
-      <notnull/>
-    </field>
-    <field name="redirectGroupIDs" type="text" comment="Redirect users belonging to these group IDs">
-      <notnull/>
-    </field>
-    <field name="dontRedirectGroupIDs" type="text" comment="Don't redirect users belonging to these group IDs">
-      <notnull/>
-    </field>
-    <field name="redirectIPs" type="text" comment="Redirect users from these IP addresses">
-      <notnull/>
-    </field>
-    <field name="dontRedirectIPs" type="text" comment="Don't redirect users from these IP addresses">
-      <notnull/>
-    </field>
-    <field name="redirectOperatingSystems" type="text" comment="Redirect users using specified Operating Systems">
-      <notnull/>
-    </field>
-    <field name="dontRedirectOperatingSystems" type="text" comment="Don't redirect users using specified Operating Systems">
-      <notnull/>
-    </field>
-    <field name="redirectLocales" type="text" comment="Redirect users by browser language">
-      <notnull/>
-    </field>
-    <field name="redirectEditors" type="boolean" comment="Redirect users that can edit the page containing the block?">
-      <notnull/>
-    </field>
-    <field name="keepQuerystring" type="boolean" comment="Keep querystring parameters when redirecting users?">
-      <notnull/>
-    </field>
-    <field name="showMessage" type="smallint" comment="Show a message block when the block does not redirect?">
-      <unsigned/>
-      <notnull/>
-    </field>
-    <field name="useCustomMessage" type="boolean" comment="Use a custom message?">
-      <notnull/>
-    </field>
-    <field name="customMessage" type="text" comment="Custom message">
-      <notnull/>
-    </field>
-  </table>
+        <field name="redirectCode" type="integer" comment="HTTP redirect code">
+            <unsigned />
+            <notnull />
+        </field>
+        <field name="redirectGroupIDs" type="text" comment="Redirect users belonging to these group IDs">
+            <notnull />
+        </field>
+        <field name="dontRedirectGroupIDs" type="text" comment="Don't redirect users belonging to these group IDs">
+            <notnull />
+        </field>
+        <field name="redirectIPs" type="text" comment="Redirect users from these IP addresses">
+            <notnull />
+        </field>
+        <field name="dontRedirectIPs" type="text" comment="Don't redirect users from these IP addresses">
+            <notnull />
+        </field>
+        <field name="redirectOperatingSystems" type="text" comment="Redirect users using specified Operating Systems">
+            <notnull />
+        </field>
+        <field name="dontRedirectOperatingSystems" type="text" comment="Don't redirect users using specified Operating Systems">
+            <notnull />
+        </field>
+        <field name="redirectLocales" type="text" comment="Redirect users by browser language">
+            <notnull />
+        </field>
+        <field name="redirectEditors" type="boolean" comment="Redirect users that can edit the page containing the block?">
+            <notnull />
+        </field>
+        <field name="keepQuerystring" type="boolean" comment="Keep querystring parameters when redirecting users?">
+            <notnull />
+        </field>
+        <field name="showMessage" type="smallint" comment="Show a message block when the block does not redirect?">
+            <unsigned />
+            <notnull />
+        </field>
+        <field name="useCustomMessage" type="boolean" comment="Use a custom message?">
+            <notnull />
+        </field>
+        <field name="customMessage" type="text" comment="Custom message">
+            <notnull />
+        </field>
+    </table>
 
 </schema>
