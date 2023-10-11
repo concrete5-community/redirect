@@ -7,7 +7,7 @@ use Concrete\Core\Cache\Level\ExpensiveCache;
 
 final class Cache implements DDCache
 {
-    const NAMESPACE = 'mlredirect_osdetector';
+    const KEY_NAMESPACE = 'mlredirect_osdetector';
 
     /**
      * @var \Concrete\Core\Cache\Cache
@@ -26,7 +26,7 @@ final class Cache implements DDCache
      */
     public function fetch($id)
     {
-        $item = $this->coreCache->getItem(self::NAMESPACE . '/' . $id);
+        $item = $this->coreCache->getItem(self::KEY_NAMESPACE . '/' . $id);
 
         return $item->isHit() ? $item->get() : false;
     }
@@ -38,7 +38,7 @@ final class Cache implements DDCache
      */
     public function contains($id)
     {
-        $item = $this->coreCache->getItem(self::NAMESPACE . '/' . $id);
+        $item = $this->coreCache->getItem(self::KEY_NAMESPACE . '/' . $id);
 
         return $item->isHit();
     }
@@ -50,7 +50,7 @@ final class Cache implements DDCache
      */
     public function save($id, $data, $lifeTime = 0)
     {
-        $item = $this->coreCache->getItem(self::NAMESPACE . '/' . $id);
+        $item = $this->coreCache->getItem(self::KEY_NAMESPACE . '/' . $id);
         $item->set($data);
         if (func_num_args() > 2) {
             $item->setTTL($lifeTime);
@@ -67,7 +67,7 @@ final class Cache implements DDCache
      */
     public function delete($id)
     {
-        $this->coreCache->delete(self::NAMESPACE . '/' . $id);
+        $this->coreCache->delete(self::KEY_NAMESPACE . '/' . $id);
 
         return true;
     }
@@ -79,6 +79,6 @@ final class Cache implements DDCache
      */
     public function flushAll()
     {
-        $this->coreCache->delete(self::NAMESPACE);
+        $this->coreCache->delete(self::KEY_NAMESPACE);
     }
 }
