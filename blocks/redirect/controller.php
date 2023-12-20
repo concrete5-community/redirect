@@ -363,6 +363,17 @@ class Controller extends BlockController
         }
         $this->set('output', $output);
     }
+    
+    /**
+     * {@inheritdoc}
+     *
+     * @see \Concrete\Core\Block\BlockController::export()
+     */
+    public function export(\SimpleXMLElement $blockNode)
+    {
+        parent::export($blockNode);
+        $blockNode->data->record->addChild('redirectToType', $this->redirectToCID ? 'cid' : 'url');
+    }
 
     /**
      * Normalize the data set by user when adding/editing a block.
