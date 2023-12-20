@@ -185,6 +185,13 @@ class Controller extends BlockController
     protected $customMessage;
 
     /**
+     * {@inheritdoc}
+     *
+     * @see \Concrete\Core\Block\BlockController::$btExportPageColumns
+     */
+    protected $btExportPageColumns = ['redirectToCID'];
+
+    /**
      * @var \Concrete\Core\Page\Page|null|false
      */
     private $currentPage = false;
