@@ -2,6 +2,8 @@
 
 namespace Concrete\Package\Redirect\Block\Redirect;
 
+use Concrete\Core\Asset\Asset;
+use Concrete\Core\Asset\AssetList;
 use Concrete\Core\Block\BlockController;
 use Concrete\Core\Editor\EditorInterface;
 use Concrete\Core\Editor\LinkAbstractor;
@@ -14,6 +16,7 @@ use Concrete\Core\Page\Page;
 use Concrete\Core\Permission\Checker;
 use Concrete\Core\User\Group;
 use Concrete\Core\User\User;
+use Concrete\Core\Utility\Service\Xml;
 use IPLib\Factory as IPFactory;
 use League\Url\Url;
 use MLRedirect\OSDetector;
@@ -23,8 +26,6 @@ use Punic\Misc;
 use Punic\Script;
 use Punic\Territory;
 use RuntimeException;
-use Concrete\Core\Asset\AssetList;
-use Concrete\Core\Asset\Asset;
 
 defined('C5_EXECUTE') or die('Access denied.');
 
@@ -371,8 +372,41 @@ class Controller extends BlockController
      */
     public function export(\SimpleXMLElement $blockNode)
     {
+        $xmlService = null;
         parent::export($blockNode);
-        $blockNode->data->record->addChild('redirectToType', $this->redirectToCID ? 'cid' : 'url');
+        if (isset($blockNode->data->record)) {
+            foreach ($blockNode->data->record as $record) {
+                $record->addChild('redirectToType', $this->redirectToCID ? 'cid' : 'url');
+                foreach ([
+                    'redirectGroupIDs' => 'redirectGroupPaths',
+                    'dontRedirectGroupIDs' => 'dontRedirectGroupPaths',
+                ] as $idField => $pathField) {
+                    if (!isset($record->{$idField})) {
+                        continue;
+                    }
+                    $paths = [];
+                    $groupIDs = preg_split('/\D+/', (string) $record->{$idField}, -1, PREG_SPLIT_NO_EMPTY);
+                    unset($record->{$idField});
+                    foreach ($groupIDs as $groupID) {
+                        $group = $this->getGroupByID($groupID);
+                        if ($group !== null) {
+                            $paths[] = $group->getGroupPath();
+                        }
+                    }
+                    if ($paths === []) {
+                        continue;
+                    }
+                    if ($xmlService === null) {
+                        $xmlService = $this->app->make(Xml::class);
+                    }
+                    if (method_exists($xmlService, 'createChildElement')) {
+                        $xmlService->createChildElement($record, $pathField, implode("\n", $paths));
+                    } else {
+                        $xmlService->createCDataNode($record, $pathField, implode("\n", $paths));
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -384,6 +418,8 @@ class Controller extends BlockController
      */
     private function normalize($data)
     {
+        static $groupRepository;
+
         $errors = $this->app->make('helper/validation/error');
         $normalized = [];
         if (!is_array($data) || $data === []) {
@@ -421,7 +457,10 @@ class Controller extends BlockController
                     $errors->add(t('Please specify the kind of the destination page'));
                     break;
             }
-            foreach (['redirectGroupIDs', 'dontRedirectGroupIDs'] as $field) {
+            foreach ([
+                'redirectGroupIDs' => 'redirectGroupPaths',
+                'dontRedirectGroupIDs' => 'dontRedirectGroupPaths',
+            ] as $field => $pathsField) {
                 $list = [];
                 if (!empty($data[$field]) && is_string($data[$field])) {
                     foreach (preg_split('/\D+/', $data[$field], -1, PREG_SPLIT_NO_EMPTY) as $gID) {
@@ -431,6 +470,21 @@ class Controller extends BlockController
                             if ($this->getGroupByID($gID) === null) {
                                 $errors->add(t('Invalid group ID: %s', $gID));
                             }
+                        }
+                    }
+                }
+                if (isset($data[$pathsField])) {
+                    foreach (preg_split('/[\r\n]+/', (string) $data[$pathsField], -1, PREG_SPLIT_NO_EMPTY) as $gPath) {
+                        if ($groupRepository === null) {
+                            $groupRepository = class_exists(Group\GroupRepository::class) ? $this->app->make(Group\GroupRepository::class) : false;
+                        }
+                        $group = $groupRepository === false ? Group\Group::getByPath($gPath) : $groupRepository->getGroupByPath($gPath);
+                        if (!$group) {
+                            continue;
+                        }
+                        $gID = (int) $group->getGroupID();
+                        if (!in_array($gID, $list, true)) {
+                            $list[] = $gID;
                         }
                     }
                 }
