@@ -37,7 +37,7 @@
         "source": "https://github.com/concrete5-community/redirect"
     },
     "require": {
-        "concrete5/core": ">=8.2.0",
+        "concrete5/core": "^8.2.0 || ^9",
         "piwik/device-detector": "^3.10"
     },
     "config": {
