@@ -4,6 +4,7 @@ namespace Concrete\Package\Redirect\Block\Redirect;
 
 use Concrete\Core\Asset\Asset;
 use Concrete\Core\Asset\AssetList;
+use Concrete\Core\Backup\ContentExporter;
 use Concrete\Core\Block\BlockController;
 use Concrete\Core\Editor\EditorInterface;
 use Concrete\Core\Editor\LinkAbstractor;
@@ -26,6 +27,7 @@ use Punic\Misc;
 use Punic\Script;
 use Punic\Territory;
 use RuntimeException;
+use SimpleXMLElement;
 
 defined('C5_EXECUTE') or die('Access denied.');
 
@@ -86,6 +88,13 @@ class Controller extends BlockController
      * @see \Concrete\Core\Block\BlockController::$btExportContentColumns
      */
     protected $btExportContentColumns = ['customMessage'];
+
+    /**
+     * {@inheritdoc}
+     *
+     * @see \Concrete\Core\Block\BlockController::$btExportPageColumns
+     */
+    protected $btExportPageColumns = ['redirectToCID'];
 
     /**
      * HTTP redirect code.
@@ -193,13 +202,6 @@ class Controller extends BlockController
     protected $customMessage;
 
     /**
-     * {@inheritdoc}
-     *
-     * @see \Concrete\Core\Block\BlockController::$btExportPageColumns
-     */
-    protected $btExportPageColumns = ['redirectToCID'];
-
-    /**
      * @var \Concrete\Core\Page\Page|null|false
      */
     private $currentPage = false;
@@ -264,7 +266,6 @@ class Controller extends BlockController
         $this->set('keepQuerystring', !empty($this->keepQuerystring));
         $this->set('showMessage', (int) $this->showMessage);
         $this->set('useCustomMessage', !empty($this->useCustomMessage));
-        $this->set('customMessage', '');
         $this->addOrEdit();
     }
 
@@ -371,49 +372,197 @@ class Controller extends BlockController
         }
         $this->set('output', $output);
     }
-    
+
     /**
      * {@inheritdoc}
      *
      * @see \Concrete\Core\Block\BlockController::export()
      */
-    public function export(\SimpleXMLElement $blockNode)
+    public function export(SimpleXMLElement $blockNode)
     {
-        $xmlService = null;
-        parent::export($blockNode);
-        if (isset($blockNode->data->record)) {
-            foreach ($blockNode->data->record as $record) {
-                $record->addChild('redirectToType', $this->redirectToCID ? 'cid' : 'url');
-                foreach ([
-                    'redirectGroupIDs' => 'redirectGroupPaths',
-                    'dontRedirectGroupIDs' => 'dontRedirectGroupPaths',
-                ] as $idField => $pathField) {
-                    if (!isset($record->{$idField})) {
-                        continue;
-                    }
-                    $paths = [];
-                    $groupIDs = preg_split('/\D+/', (string) $record->{$idField}, -1, PREG_SPLIT_NO_EMPTY);
-                    unset($record->{$idField});
-                    foreach ($groupIDs as $groupID) {
-                        $group = $this->getGroupByID($groupID);
-                        if ($group !== null) {
-                            $paths[] = $group->getGroupPath();
-                        }
-                    }
-                    if ($paths === []) {
-                        continue;
-                    }
-                    if ($xmlService === null) {
-                        $xmlService = $this->app->make(Xml::class);
-                    }
+        $xmlService = $this->app->make(Xml::class);
+        $xData = $blockNode->addChild('data');
+        $xData->addAttribute('table', $this->btTable);
+        $xRecord = $xData->addChild('record');
+        $xRecord->addChild('redirectToType', $this->redirectToCID ? 'cid' : 'url');
+        $xRecord->addChild('redirectTo', $this->redirectToCID ? ContentExporter::replacePageWithPlaceHolder($this->redirectToCID) : $this->redirectToURL);
+        $xRecord->addChild('redirectCode', (string) $this->redirectCode);
+        foreach ([
+            'redirectGroupIDs' => 'redirectGroup',
+            'dontRedirectGroupIDs' => 'dontRedirectGroup',
+        ] as $dbField => $xmlField) {
+            foreach (preg_split('/\D+/', (string) $this->{$dbField}, -1, PREG_SPLIT_NO_EMPTY) as $groupID) {
+                $group = $this->getGroupByID($groupID);
+                if ($group !== null) {
                     if (method_exists($xmlService, 'createChildElement')) {
-                        $xmlService->createChildElement($record, $pathField, implode("\n", $paths));
+                        $xmlService->createChildElement($xRecord, $xmlField, $group->getGroupPath());
                     } else {
-                        $xmlService->createCDataNode($record, $pathField, implode("\n", $paths));
+                        $xmlService->createCDataNode($xRecord, $xmlField, $group->getGroupPath());
                     }
                 }
             }
         }
+        foreach ([
+            'redirectIPs' => 'redirectIP',
+            'dontRedirectIPs' => 'dontRedirectIP',
+            'redirectOperatingSystems' => 'redirectOperatingSystem',
+            'dontRedirectOperatingSystems' => 'dontRedirectOperatingSystem',
+        ] as $dbField => $xmlField) {
+            foreach (preg_split('/\|/', (string) $this->{$dbField}, -1, PREG_SPLIT_NO_EMPTY) as $ip) {
+                if (method_exists($xmlService, 'createChildElement')) {
+                    $xmlService->createChildElement($xRecord, $xmlField, $ip);
+                } else {
+                    $xmlService->createCDataNode($xRecord, $xmlField, $ip);
+                }
+            }
+        }
+        foreach (preg_split('/\|/', (string) $this->redirectLocales, -1, PREG_SPLIT_NO_EMPTY) as $pattern) {
+            $chunks = explode('-', $pattern);
+            $xPattern = $xRecord->addChild('redirectLocale');
+            $xPattern['language'] = $chunks[0];
+            $xPattern['script'] = $chunks[1] === '_' ? '' : $chunks[1];
+            $xPattern['territory'] = $chunks[2] === '_' ? '' : $chunks[2];
+        }
+        $xRecord->addChild('redirectEditors', $this->redirectEditors ? 'true' : 'false');
+        $xRecord->addChild('keepQuerystring', $this->keepQuerystring ? 'true' : 'false');
+        switch ((int) $this->showMessage) {
+            case self::SHOWMESSAGE_NEVER:
+                $xRecord->addChild('showMessage', 'never');
+                break;
+            case self::SHOWMESSAGE_EDITORS:
+                $xRecord->addChild('showMessage', 'editors');
+                break;
+            case self::SHOWMESSAGE_ALWAYS:
+                $xRecord->addChild('showMessage', 'always');
+                break;
+        }
+        $xRecord->addChild('useCustomMessage', $this->useCustomMessage ? 'true' : 'false');
+        if (method_exists($xmlService, 'createChildElement')) {
+            $xmlService->createChildElement($xRecord, 'customMessage', LinkAbstractor::export((string) $this->customMessage));
+        } else {
+            $xmlService->createCDataNode($xRecord, 'customMessage', LinkAbstractor::export((string) $this->customMessage));
+        }
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * @see \Concrete\Core\Block\BlockController::getImportData()
+     */
+    protected function getImportData($blockNode, $page)
+    {
+        static $groupRepository;
+        $xRecord = null;
+        if (isset($blockNode->data)) {
+            foreach ($blockNode->data as $xData) {
+                if (!isset($xData['table']) || (string) $xData['table'] !== $this->btTable) {
+                    continue;
+                }
+                if (isset($xData->record)) {
+                    $xRecord = $xData->record;
+                    break;
+                }
+            }
+        }
+        if ($xRecord === null) {
+            return [];
+        }
+        $data = [
+            'redirectToType' => isset($xRecord->redirectToType) ? (string) $xRecord->redirectToType : '',
+        ];
+        switch ($data['redirectToType']) {
+            case 'cid':
+                $data['redirectToCID'] = isset($xRecord->redirectTo) ? preg_replace('/^\{CCM:CID_(\d+)\}$/', '\1', (string) LinkAbstractor::import((string) $xRecord->redirectTo)) : '';
+                break;
+            case 'url':
+            default:
+                $data['redirectToURL'] = isset($xRecord->redirectTo) ? (string) $xRecord->redirectTo : '';
+                break;
+        }
+        $data['redirectCode'] = isset($xRecord->redirectCode) ? (string) $xRecord->redirectCode : '';
+        foreach ([
+            'redirectGroup' => 'redirectGroupIDs',
+            'dontRedirectGroup' => 'dontRedirectGroupIDs',
+        ] as $xmlField => $dbField) {
+            $dbValues = [];
+            if (isset($xRecord->{$xmlField})) {
+                foreach ($xRecord->{$xmlField} as $xmlNode) {
+                    $path = (string) $xmlNode;
+                    if ($path === '') {
+                        continue;
+                    }
+                    if ($groupRepository === null) {
+                        $groupRepository = class_exists(Group\GroupRepository::class) ? $this->app->make(Group\GroupRepository::class) : false;
+                    }
+                    $group = $groupRepository === false ? Group\Group::getByPath($path) : $groupRepository->getGroupByPath($path);
+                    if (!$group) {
+                        continue;
+                    }
+                    $dbValues[] = $group->getGroupID();
+                }
+            }
+            $data[$dbField] = implode('|', $dbValues);
+        }
+        foreach ([
+            'redirectIP' => 'redirectIPs',
+            'dontRedirectIP' => 'dontRedirectIPs',
+        ] as $xmlField => $dbField) {
+            $dbValues = [];
+            if (isset($xRecord->{$xmlField})) {
+                foreach ($xRecord->{$xmlField} as $xmlNode) {
+                    $dbValue = (string) $xmlNode;
+                    if ($dbValue !== '') {
+                        $dbValues[] = $dbValue;
+                    }
+                }
+            }
+            $data[$dbField] = implode("\n", $dbValues);
+        }
+        foreach ([
+            'redirectOperatingSystem' => 'redirectOperatingSystems',
+            'dontRedirectOperatingSystem' => 'dontRedirectOperatingSystems',
+        ] as $xmlField => $dbField) {
+            $dbValues = [];
+            if (isset($xRecord->{$xmlField})) {
+                foreach ($xRecord->{$xmlField} as $xmlNode) {
+                    $dbValue = (string) $xmlNode;
+                    if ($dbValue !== '') {
+                        $dbValues[] = $dbValue;
+                    }
+                }
+            }
+            $data[$dbField] = $dbValues;
+        }
+        $languages = [];
+        $scripts = [];
+        $terrotories = [];
+        if (isset($xRecord->redirectLocale)) {
+            foreach ($xRecord->redirectLocale as $xRedirectLocale) {
+                $languages[] = (string) $xRedirectLocale['language'];
+                $scripts[] = (string) $xRedirectLocale['script'] === '' ? '_' : (string) $xRedirectLocale['script'];
+                $terrotories[] = (string) $xRedirectLocale['territory'] === '' ? '_' :  (string) $xRedirectLocale['territory'];
+            }
+        }
+        $data['redirectLocale_language'] = $languages;
+        $data['redirectLocale_script'] = $scripts;
+        $data['redirectLocale_territory'] = $terrotories;
+        $data['redirectEditors'] = filter_var(isset($xRecord->redirectEditors) ? (string) $xRecord->redirectEditors : '', FILTER_VALIDATE_BOOLEAN);
+        $data['keepQuerystring'] = filter_var(isset($xRecord->keepQuerystring) ? (string) $xRecord->keepQuerystring : '', FILTER_VALIDATE_BOOLEAN);
+        switch (isset($xRecord->showMessage) ? (string) $xRecord->showMessage : '') {
+            case 'never':
+                $data['showMessage'] = self::SHOWMESSAGE_NEVER;
+                break;
+            case 'editors':
+                $data['showMessage'] = self::SHOWMESSAGE_EDITORS;
+                break;
+            case 'always':
+                $data['showMessage'] = self::SHOWMESSAGE_ALWAYS;
+                break;
+        }
+        $data['useCustomMessage'] = filter_var(isset($xRecord->useCustomMessage) ? (string) $xRecord->useCustomMessage : '', FILTER_VALIDATE_BOOLEAN);
+        $data['customMessage'] = isset($xRecord->customMessage) ? LinkAbstractor::import((string) $xRecord->customMessage) : '';
+
+        return $data;
     }
 
     /**
@@ -465,9 +614,9 @@ class Controller extends BlockController
                     break;
             }
             foreach ([
-                'redirectGroupIDs' => 'redirectGroupPaths',
-                'dontRedirectGroupIDs' => 'dontRedirectGroupPaths',
-            ] as $field => $pathsField) {
+                'redirectGroupIDs',
+                'dontRedirectGroupIDs',
+            ] as $field) {
                 $list = [];
                 if (!empty($data[$field]) && is_string($data[$field])) {
                     foreach (preg_split('/\D+/', $data[$field], -1, PREG_SPLIT_NO_EMPTY) as $gID) {
@@ -477,21 +626,6 @@ class Controller extends BlockController
                             if ($this->getGroupByID($gID) === null) {
                                 $errors->add(t('Invalid group ID: %s', $gID));
                             }
-                        }
-                    }
-                }
-                if (isset($data[$pathsField])) {
-                    foreach (preg_split('/[\r\n]+/', (string) $data[$pathsField], -1, PREG_SPLIT_NO_EMPTY) as $gPath) {
-                        if ($groupRepository === null) {
-                            $groupRepository = class_exists(Group\GroupRepository::class) ? $this->app->make(Group\GroupRepository::class) : false;
-                        }
-                        $group = $groupRepository === false ? Group\Group::getByPath($gPath) : $groupRepository->getGroupByPath($gPath);
-                        if (!$group) {
-                            continue;
-                        }
-                        $gID = (int) $group->getGroupID();
-                        if (!in_array($gID, $list, true)) {
-                            $list[] = $gID;
                         }
                     }
                 }
