@@ -81,6 +81,13 @@ class Controller extends BlockController
     protected $supportSavingNullValues = true;
 
     /**
+     * {@inheritdoc}
+     *
+     * @see \Concrete\Core\Block\BlockController::$btExportContentColumns
+     */
+    protected $btExportContentColumns = ['customMessage'];
+
+    /**
      * HTTP redirect code.
      *
      * @var int|string
