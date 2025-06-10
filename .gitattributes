@@ -1,4 +1,2 @@
 /.* export-ignore
-/icon.svg export-ignore
-/blocks/redirect/icon.svg export-ignore
-/README.md export-ignore
+/*.md export-ignore
